@@ -91,12 +91,25 @@ export function useTodayMatches() {
         const tournament = tournamentMap.get(tournamentName)
         const status = getMatchStatus(match.strStatus) || 'scheduled'
 
+        // Tentar extrair score de strResult se intHomeScore for null
+        let homeScore = parseInt(match.intHomeScore || 0)
+        let awayScore = parseInt(match.intAwayScore || 0)
+
+        // Se scores são 0 mas tem strResult, tentar parsear
+        if ((homeScore === 0 && awayScore === 0) && match.strResult) {
+          const resultParts = match.strResult.trim().split(/[-–]/).map(s => s.trim())
+          if (resultParts.length === 2) {
+            homeScore = parseInt(resultParts[0]) || 0
+            awayScore = parseInt(resultParts[1]) || 0
+          }
+        }
+
         tournament.matches.push({
           id: match.idEvent,
           homeTeam: homeTeam || 'Player 1',
           awayTeam: awayTeam || 'Player 2',
-          homeScore: parseInt(match.intHomeScore || 0),
-          awayScore: parseInt(match.intAwayScore || 0),
+          homeScore: homeScore,
+          awayScore: awayScore,
           date: match.dateEvent,
           time: match.strTime || match.strTimeLocal || '00:00',
           status: status,
