@@ -94,13 +94,13 @@ export function useESPNTennis() {
             let awayScore = 0
             let homeAthleteFlag = undefined
             let awayAthleteFlag = undefined
+            let homeAthleteId = undefined
+            let awayAthleteId = undefined
 
             if (competitors.length >= 2) {
               const home = competitors[0]
               const away = competitors[1]
 
-              console.log('Home athlete:', home.athlete)
-              console.log('Away athlete:', away.athlete)
 
               homeTeam = home.athlete?.displayName || home.athlete?.fullName
               awayTeam = away.athlete?.displayName || away.athlete?.fullName
@@ -108,9 +108,12 @@ export function useESPNTennis() {
               // Pular competições sem nomes (duplos/outras categorias)
               if (!homeTeam || !awayTeam) return
 
-              // Extrair dados dos atletas (bandeiras, país)
+              // Extrair dados dos atletas (bandeiras, país, ID)
               homeAthleteFlag = home.athlete?.flag?.href
               awayAthleteFlag = away.athlete?.flag?.href
+              homeAthleteId = home.id
+              awayAthleteId = away.id
+
 
               // Em tennis, contar quantos sets cada jogador ganhou
               if (home.linescores && away.linescores) {
@@ -143,6 +146,8 @@ export function useESPNTennis() {
               awayTeam: awayTeam,
               homeAthleteFlag: homeAthleteFlag,
               awayAthleteFlag: awayAthleteFlag,
+              homeAthleteId: homeAthleteId,
+              awayAthleteId: awayAthleteId,
               homeScore: homeScore,
               awayScore: awayScore,
               date: competition.date || selectedDate,
@@ -238,12 +243,6 @@ export function useESPNTennis() {
   // Buscar dados quando a data selecionada mudar
   useEffect(() => {
     fetchTennisMatches()
-  }, [selectedDate])
-
-  // Auto-refresh a cada 60 segundos
-  useEffect(() => {
-    const interval = setInterval(fetchTennisMatches, 60000)
-    return () => clearInterval(interval)
   }, [selectedDate])
 
   return {

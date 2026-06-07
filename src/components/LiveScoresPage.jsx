@@ -1,17 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import LiveScore from './LiveScore'
 import TypeFilter from './TypeFilter'
 
-export default function LiveScoresPage({ tournaments, selectedDate, setSelectedDate, onBack }) {
+export default function LiveScoresPage({ tournaments, selectedDate, setSelectedDate, onBack, refetch }) {
   const [selectedType, setSelectedType] = useState('all')
   const [selectedTournament, setSelectedTournament] = useState(null)
 
-  // Get all live matches
+  // Auto-refresh a cada 60 segundos quando na página de live scores
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (refetch) refetch()
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [refetch])
+
+  // Get all live matches (ongoing or finished - for demo, show finished as recent)
   const liveMatches = useMemo(() => {
     const matches = []
     tournaments.forEach(tournament => {
       tournament.matches.forEach(match => {
-        if (match.status === 'ongoing') {
+        if (match.status === 'ongoing' || match.status === 'finished') {
           matches.push({ ...match, tournamentName: tournament.name, tournamentEmoji: tournament.emoji })
         }
       })

@@ -1,4 +1,20 @@
+import { useState } from 'react'
+import { usePlayerStats } from '../hooks/usePlayerStats'
+import PlayerModal from './PlayerModal'
+
 export default function LiveScore({ game }) {
+  const [selectedPlayer, setSelectedPlayer] = useState(null)
+  const { playerStats, loading, fetchPlayerStats } = usePlayerStats()
+
+  const handlePlayerClick = (athleteId, playerName) => {
+    setSelectedPlayer(playerName)
+    fetchPlayerStats(athleteId, game.type)
+  }
+
+  const handleCloseModal = () => {
+    setSelectedPlayer(null)
+  }
+
   const getScoreColor = (winner) => {
     return winner ? 'text-green-400' : 'text-gray-300'
   }
@@ -10,8 +26,10 @@ export default function LiveScore({ game }) {
       {/* LIVE Indicator */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-          <span className="text-sm font-bold text-red-400">🔴 LIVE NOW</span>
+          <div className={`w-3 h-3 rounded-full ${game.status === 'ongoing' ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`}></div>
+          <span className={`text-sm font-bold ${game.status === 'ongoing' ? 'text-red-400' : 'text-green-400'}`}>
+            {game.status === 'ongoing' ? '🔴 LIVE NOW' : '✓ JUST FINISHED'}
+          </span>
         </div>
         <span className="text-xs text-gray-400">{game.court}</span>
       </div>
@@ -24,7 +42,12 @@ export default function LiveScore({ game }) {
             {game.homeAthleteFlag && (
               <img src={game.homeAthleteFlag} alt="flag" className="w-4 h-3 rounded" />
             )}
-            <div className="text-sm font-bold text-white truncate">{game.homeTeam}</div>
+            <div
+              className="text-sm font-bold text-white truncate cursor-pointer hover:text-blue-400 transition"
+              onClick={() => game.homeAthleteId && handlePlayerClick(game.homeAthleteId, game.homeTeam)}
+            >
+              {game.homeTeam}
+            </div>
           </div>
           <div className="text-4xl font-black text-white">{game.homeScore}</div>
         </div>
@@ -52,7 +75,12 @@ export default function LiveScore({ game }) {
             {game.awayAthleteFlag && (
               <img src={game.awayAthleteFlag} alt="flag" className="w-4 h-3 rounded" />
             )}
-            <div className="text-sm font-bold text-white truncate">{game.awayTeam}</div>
+            <div
+              className="text-sm font-bold text-white truncate cursor-pointer hover:text-blue-400 transition"
+              onClick={() => game.awayAthleteId && handlePlayerClick(game.awayAthleteId, game.awayTeam)}
+            >
+              {game.awayTeam}
+            </div>
           </div>
           <div className="text-4xl font-black text-white">{game.awayScore}</div>
         </div>
@@ -76,6 +104,15 @@ export default function LiveScore({ game }) {
       <div className="mt-3 text-xs text-gray-500 text-center">
         ⚡ Live • Updates every 60s
       </div>
+
+      {/* Player Modal */}
+      {selectedPlayer && (
+        <PlayerModal
+          player={playerStats}
+          loading={loading}
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   )
 }

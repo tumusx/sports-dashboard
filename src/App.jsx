@@ -14,7 +14,7 @@ function App() {
   const [showCompleted, setShowCompleted] = useState(false)
 
   // Buscar dados de tênis da ESPN
-  const { tournaments, loading: tournamentsLoading, lastUpdate, error, selectedDate, setSelectedDate } = useESPNTennis()
+  const { tournaments, loading: tournamentsLoading, lastUpdate, error, selectedDate, setSelectedDate, refetch } = useESPNTennis()
 
   // Filtrar torneios por categoria
   const filteredTournamentsByCategory = useMemo(() => {
@@ -84,6 +84,7 @@ function App() {
         selectedDate={selectedDate}
         setSelectedDate={setSelectedDate}
         onBack={() => setShowLiveScores(false)}
+        refetch={refetch}
       />
     )
   }
