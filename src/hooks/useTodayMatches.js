@@ -26,7 +26,8 @@ export function useTodayMatches() {
       if (!response.ok) throw new Error('Failed to fetch today matches')
 
       const data = await response.json()
-      const results = data.results || []
+      // API retorna "events" não "results"
+      const results = data.events || data.results || []
 
       console.log('API Response:', { data, results, count: results.length })
 
