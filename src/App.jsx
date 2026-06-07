@@ -3,9 +3,11 @@ import './App.css'
 import TypeFilter from './components/TypeFilter'
 import CategoryFilter from './components/CategoryFilter'
 import GamesList from './components/GamesList'
+import LiveScoresPage from './components/LiveScoresPage'
 import { useESPNTennis } from './hooks/useESPNTennis'
 
 function App() {
+  const [showLiveScores, setShowLiveScores] = useState(false)
   const [selectedType, setSelectedType] = useState('all') // all, atp, wta
   const [selectedCategory, setSelectedCategory] = useState('all') // tournament type
   const [selectedTournament, setSelectedTournament] = useState(null)
@@ -50,18 +52,10 @@ function App() {
   const filteredGames = useMemo(() => {
     if (!currentTournament) return []
 
-    console.log(`[FILTER DEBUG] selectedType=${selectedType}, tournament=${currentTournament.name}, totalMatches=${currentTournament.matches.length}`)
-    const typeCount = {}
-    currentTournament.matches.forEach(m => { typeCount[m.type] = (typeCount[m.type] || 0) + 1 })
-    console.log(`[FILTER DEBUG] Match types in tournament:`, typeCount)
-
-    const filtered = currentTournament.matches
+    return currentTournament.matches
       .filter(game => {
         // Filtrar por tipo
-        if (selectedType !== 'all' && game.type !== selectedType) {
-          console.log(`[FILTER DEBUG] Excluded ${game.homeTeam} vs ${game.awayTeam}: type=${game.type} !== selectedType=${selectedType}`)
-          return false
-        }
+        if (selectedType !== 'all' && game.type !== selectedType) return false
         // Filtrar por status
         // ongoing = LIVE
         // tudo mais (finished, scheduled, null) = COMPLETED
@@ -73,9 +67,6 @@ function App() {
           return game.status === 'ongoing'
         }
       })
-
-    console.log(`[FILTER DEBUG] Result: ${filtered.length} matches after filter`)
-    return filtered
   }, [currentTournament, selectedType, displayShowCompleted])
 
   // Extrair categorias únicas
@@ -85,28 +76,48 @@ function App() {
 
   const loading = tournamentsLoading
 
+  // Show Live Scores page if toggled
+  if (showLiveScores) {
+    return (
+      <LiveScoresPage
+        tournaments={tournaments}
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        onBack={() => setShowLiveScores(false)}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 to-gray-900">
       <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            🏆 ATP/WTA Live Dashboard
-          </h1>
-          <p className="text-gray-400">Real-time scores & tracking</p>
-
-          {/* Date Selector */}
-          <div className="mt-4">
-            <label className="block text-sm font-semibold text-gray-300 mb-2">
-              Select Date
-            </label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-            />
+        {/* Header with Toggle */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">
+              🏆 ATP/WTA Dashboard
+            </h1>
+            <p className="text-gray-400">Real-time scores & tracking</p>
           </div>
+          <button
+            onClick={() => setShowLiveScores(true)}
+            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
+          >
+            🔴 LIVE SCORES
+          </button>
+        </div>
+
+        {/* Date Selector */}
+        <div className="mb-8">
+          <label className="block text-sm font-semibold text-gray-300 mb-2">
+            Select Date
+          </label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+          />
         </div>
 
         {/* Error Message */}

@@ -123,6 +123,20 @@ export function useESPNTennis() {
             const homeLinescores = competitors[0]?.linescores || []
             const awayLinescores = competitors[1]?.linescores || []
 
+            // Detectar tipo: se event.league é ATP mas tem nomes femininos, marcar como WTA
+            // Nomes femininos comuns em tênis
+            const femaleNames = ['Maja', 'Diana', 'Anna', 'Aryna', 'Katie', 'Ajla', 'Linda', 'Tatjana', 'Maddison', 'Celine', 'Himeno', 'Ashlyn', 'Lisa', 'Darya', 'Dang', 'Laura', 'Sofia', 'Tatiana', 'Nika', 'Chloe', 'Tyra', 'Varvara']
+            let matchType = event.league.toLowerCase()
+
+            // Se event.league é ATP mas os nomes parecem femininos, é provavelmente WTA
+            if (matchType === 'atp') {
+              const isLikelyFemale = femaleNames.some(name => homeTeam?.includes(name) || awayTeam?.includes(name))
+              if (isLikelyFemale) {
+                matchType = 'wta'
+                console.log(`[AUTO-DETECT] ${homeTeam} vs ${awayTeam}: Detectado como WTA (event.league era ATP)`)
+              }
+            }
+
             tournament.matches.push({
               id: competition.id,
               homeTeam: homeTeam,
@@ -134,7 +148,7 @@ export function useESPNTennis() {
               date: competition.date || selectedDate,
               time: competition.startDate ? new Date(competition.startDate).toLocaleTimeString() : 'TBA',
               status: matchStatus,
-              type: event.league.toLowerCase(),
+              type: matchType,
               court: competition.venue?.fullName || competition.venue?.court || 'Unknown Court',
               sets: {
                 homeWon: homeScore,
@@ -164,8 +178,32 @@ export function useESPNTennis() {
         })
       })
 
+      // Mesclar tournaments com o mesmo nome (ATP e WTA do mesmo torneio)
+      const tournamentsByName = new Map()
+      tournamentMap.forEach(tournament => {
+        const existing = tournamentsByName.get(tournament.name)
+        if (existing) {
+          // Mesclar matches
+          existing.matches.push(...tournament.matches)
+          // Atualizar contagens
+          tournament.matches.forEach(m => {
+            if (m.status === 'ongoing') {
+              existing.liveCount++
+            } else {
+              existing.finishedCount++
+            }
+          })
+          // Combinar leagues
+          if (existing.league !== tournament.league) {
+            existing.league = 'ATP/WTA'
+          }
+        } else {
+          tournamentsByName.set(tournament.name, tournament)
+        }
+      })
+
       // Converter para array e ordenar
-      const tournamentList = Array.from(tournamentMap.values())
+      const tournamentList = Array.from(tournamentsByName.values())
         .sort((a, b) => {
           if (b.liveCount !== a.liveCount) return b.liveCount - a.liveCount
           return b.matches.length - a.matches.length
