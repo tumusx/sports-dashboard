@@ -55,9 +55,15 @@ function App() {
         // Filtrar por tipo
         if (selectedType !== 'all' && game.type !== selectedType) return false
         // Filtrar por status
-        if (displayShowCompleted && game.status !== 'finished') return false
-        if (!displayShowCompleted && game.status !== 'ongoing') return false
-        return true
+        // ongoing = LIVE
+        // tudo mais (finished, scheduled, null) = COMPLETED
+        if (displayShowCompleted) {
+          // Mostrar tudo que não é 'ongoing'
+          return game.status !== 'ongoing'
+        } else {
+          // Mostrar apenas 'ongoing'
+          return game.status === 'ongoing'
+        }
       })
   }, [currentTournament, selectedType, displayShowCompleted])
 
