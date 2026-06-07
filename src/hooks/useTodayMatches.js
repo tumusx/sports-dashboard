@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const API_BASE = 'https://www.thesportsdb.com/api/v1'
+const API_BASE = 'https://www.thesportsdb.com/api/v2/json/livescore'
 
 export function useTodayMatches() {
   const [tournaments, setTournaments] = useState([])
@@ -9,37 +9,23 @@ export function useTodayMatches() {
   const [error, setError] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
 
-  const fetchTodayMatches = async () => {
+  const fetchLiveMatches = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const today = new Date().toISOString().split('T')[0]
+      // Buscar live scores de tênis
+      const response = await fetch(`${API_BASE}/tennis`)
 
-      // Buscar TODOS os eventos do dia
-      const response = await fetch(
-        `${API_BASE}/eventsday.php?day=${today}`
-      )
-
-      if (!response.ok) throw new Error('Failed to fetch today matches')
+      if (!response.ok) throw new Error('Failed to fetch live matches')
 
       const data = await response.json()
-      const results = data.results || []
+      const results = data.result || []
 
-      // Filtrar apenas tênis ATP
-      const tennisMatches = results.filter(event => {
-        const league = event.strLeague || ''
-        return league.toLowerCase().includes('atp') ||
-               league.toLowerCase().includes('tennis') ||
-               league.toLowerCase().includes('wimbledon') ||
-               league.toLowerCase().includes('open') ||
-               league.toLowerCase().includes('masters')
-      })
-
-      // Agrupar por torneio e categoria
+      // Processar matches
       const tournamentMap = new Map()
 
-      tennisMatches.forEach(match => {
+      results.forEach(match => {
         const tournamentName = match.strEvent || 'Unknown'
         const league = match.strLeague || 'ATP'
         const category = determineTournamentCategory(league)
@@ -57,6 +43,8 @@ export function useTodayMatches() {
         }
 
         const tournament = tournamentMap.get(tournamentName)
+        const status = getMatchStatus(match.strStatus)
+
         tournament.matches.push({
           id: match.idEvent,
           homeTeam: match.strHomeTeam,
@@ -65,39 +53,44 @@ export function useTodayMatches() {
           awayScore: parseInt(match.intAwayScore || 0),
           date: match.dateEvent,
           time: match.strTime || '00:00',
-          status: getMatchStatus(match.strStatus),
+          status: status,
           type: determineType(league),
           court: match.strVenue || 'Court',
           sets: parseSetData(match),
           points: parsePointData(match),
         })
 
-        if (getMatchStatus(match.strStatus) === 'ongoing') {
+        if (status === 'ongoing') {
           tournament.liveCount++
-        } else if (getMatchStatus(match.strStatus) === 'finished') {
+        } else if (status === 'finished') {
           tournament.finishedCount++
         }
       })
 
-      // Converter para array
+      // Converter para array e ordenar
       const tournamentList = Array.from(tournamentMap.values())
-        .sort((a, b) => b.liveCount - a.liveCount) // Torneios com jogos ao vivo primeiro
+        .sort((a, b) => {
+          // Torneios com jogos ao vivo primeiro
+          if (b.liveCount !== a.liveCount) return b.liveCount - a.liveCount
+          // Depois por número total de jogos
+          return (b.matches.length) - (a.matches.length)
+        })
 
       setTournaments(tournamentList)
-      setAllMatches(tennisMatches)
+      setAllMatches(results)
       setLastUpdate(new Date())
     } catch (err) {
       setError(err.message)
-      console.error('Error:', err)
+      console.error('Error fetching live scores:', err)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchTodayMatches()
+    fetchLiveMatches()
     // Atualizar a cada 30 segundos
-    const interval = setInterval(fetchTodayMatches, 30000)
+    const interval = setInterval(fetchLiveMatches, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -110,6 +103,7 @@ function determineTournamentCategory(league) {
   if (lower.includes('grand slam') ||
       lower.includes('australian') ||
       lower.includes('french') ||
+      lower.includes('roland') ||
       lower.includes('wimbledon') ||
       lower.includes('us open')) {
     return 'Grand Slam'
@@ -119,7 +113,9 @@ function determineTournamentCategory(league) {
       lower.includes('rome') ||
       lower.includes('paris') ||
       lower.includes('shanghai') ||
-      lower.includes('cincinnati')) {
+      lower.includes('cincinnati') ||
+      lower.includes('monte carlo') ||
+      lower.includes('madrid')) {
     return 'Masters 1000'
   }
 
@@ -143,7 +139,12 @@ function getEmoji(tournamentName) {
   if (lower.includes('us open')) return '🗽'
   if (lower.includes('rome') || lower.includes('italia')) return '🏛️'
   if (lower.includes('paris')) return '🇫🇷'
+  if (lower.includes('shanghai')) return '🇨🇳'
+  if (lower.includes('cincinnati') || lower.includes('ohio')) return '🏀'
+  if (lower.includes('monte carlo')) return '🇲🇨'
+  if (lower.includes('madrid')) return '🇪🇸'
   if (lower.includes('finals')) return '👑'
+  if (lower.includes('queens') || lower.includes('london')) return '🏖️'
 
   return '🎾'
 }
