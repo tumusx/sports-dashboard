@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 
-const API_BASE = 'https://www.thesportsdb.com/api/v2/json/livescore'
+const API_KEY = '123'
+const API_BASE = `https://www.thesportsdb.com/api/v2/json/${API_KEY}`
 
 export function useTodayMatches() {
   const [tournaments, setTournaments] = useState([])
