@@ -10,11 +10,20 @@ export default function GameCard({ game }) {
   }
 
   const isLive = game.status === 'ongoing'
+  const isFinished = game.status === 'finished'
 
   const formatScore = (points) => {
     const scoreMap = { 0: '0', 15: '15', 30: '30', 45: '40' }
     return scoreMap[points] || '0'
   }
+
+  const getWinner = () => {
+    if (game.homeScore > game.awayScore) return 'home'
+    if (game.awayScore > game.homeScore) return 'away'
+    return null
+  }
+
+  const winner = getWinner()
 
   return (
     <div className={`bg-gray-800 rounded-lg border-2 p-5 transition-all ${
@@ -37,10 +46,15 @@ export default function GameCard({ game }) {
       {/* Teams & Scores */}
       <div className="mb-4 space-y-3">
         {/* Home Team */}
-        <div className="flex items-end justify-between gap-3">
+        <div className={`flex items-end justify-between gap-3 p-2 rounded ${
+          winner === 'home' ? 'bg-green-900/30' : ''
+        }`}>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-white truncate">
+            <div className={`text-sm font-semibold truncate ${
+              winner === 'home' ? 'text-green-400' : 'text-white'
+            }`}>
               {game.homeTeam}
+              {winner === 'home' && isFinished && ' 🏆'}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -59,12 +73,21 @@ export default function GameCard({ game }) {
               </div>
             </div>
             {/* Points */}
-            <div className="text-center bg-blue-900/30 px-3 py-2 rounded">
-              <div className="text-xs text-gray-400">Pts</div>
-              <div className="text-xl font-bold text-blue-400">
-                {formatScore(game.points?.home || 0)}
+            {!isFinished ? (
+              <div className="text-center bg-blue-900/30 px-3 py-2 rounded">
+                <div className="text-xs text-gray-400">Pts</div>
+                <div className="text-xl font-bold text-blue-400">
+                  {formatScore(game.points?.home || 0)}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-center bg-gray-700 px-3 py-2 rounded">
+                <div className="text-xs text-gray-400">Score</div>
+                <div className="text-xl font-bold text-white">
+                  {game.homeScore}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -72,10 +95,15 @@ export default function GameCard({ game }) {
         <div className="h-px bg-gray-700"></div>
 
         {/* Away Team */}
-        <div className="flex items-end justify-between gap-3">
+        <div className={`flex items-end justify-between gap-3 p-2 rounded ${
+          winner === 'away' ? 'bg-green-900/30' : ''
+        }`}>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-white truncate">
+            <div className={`text-sm font-semibold truncate ${
+              winner === 'away' ? 'text-green-400' : 'text-white'
+            }`}>
               {game.awayTeam}
+              {winner === 'away' && isFinished && ' 🏆'}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -94,12 +122,21 @@ export default function GameCard({ game }) {
               </div>
             </div>
             {/* Points */}
-            <div className="text-center bg-purple-900/30 px-3 py-2 rounded">
-              <div className="text-xs text-gray-400">Pts</div>
-              <div className="text-xl font-bold text-purple-400">
-                {formatScore(game.points?.away || 0)}
+            {!isFinished ? (
+              <div className="text-center bg-purple-900/30 px-3 py-2 rounded">
+                <div className="text-xs text-gray-400">Pts</div>
+                <div className="text-xl font-bold text-purple-400">
+                  {formatScore(game.points?.away || 0)}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-center bg-gray-700 px-3 py-2 rounded">
+                <div className="text-xs text-gray-400">Score</div>
+                <div className="text-xl font-bold text-white">
+                  {game.awayScore}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

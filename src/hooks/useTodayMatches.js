@@ -118,6 +118,16 @@ export function useTodayMatches() {
           return (b.matches.length) - (a.matches.length)
         })
 
+      console.log('Tournaments created:', {
+        count: tournamentList.length,
+        tournaments: tournamentList.map(t => ({
+          name: t.name,
+          matches: t.matches.length,
+          live: t.liveCount,
+          finished: t.finishedCount
+        }))
+      })
+
       setTournaments(tournamentList)
       setAllMatches(tennisMatches)
       setLastUpdate(new Date())
