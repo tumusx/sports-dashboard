@@ -43,7 +43,32 @@ export function useTodayMatches() {
       const tournamentMap = new Map()
 
       tennisMatches.forEach(match => {
-        const tournamentName = match.strEvent || 'Unknown'
+        // Parse strEvent para extrair nome do torneio e jogadores
+        // Formato: "Tournament Name Player1 vs Player2"
+        const eventStr = match.strEvent || 'Unknown'
+        const parts = eventStr.split(' vs ')
+
+        let homeTeam = match.strHomeTeam
+        let awayTeam = match.strAwayTeam
+        let tournamentName = match.strLeague || 'Unknown'
+
+        // Se homeTeam/awayTeam são null, extrair do strEvent
+        if (!homeTeam || !awayTeam) {
+          if (parts.length === 2) {
+            // Extrair jogadores do strEvent
+            // "Boss Open Rodionov" vs "Shimabukuro"
+            const firstPart = parts[0].trim()
+            const secondPart = parts[1].trim()
+
+            // Último word antes de 'vs' é o primeiro jogador
+            const words1 = firstPart.split(' ')
+            homeTeam = words1[words1.length - 1]
+
+            // Primeiro word após 'vs' é o segundo jogador
+            awayTeam = secondPart.split(' ')[0]
+          }
+        }
+
         const league = match.strLeague || 'ATP'
         const category = determineTournamentCategory(league)
 
@@ -52,7 +77,7 @@ export function useTodayMatches() {
             name: tournamentName,
             league: league,
             category: category,
-            emoji: getEmoji(tournamentName),
+            emoji: getEmoji(eventStr),
             matches: [],
             liveCount: 0,
             finishedCount: 0,
@@ -60,19 +85,19 @@ export function useTodayMatches() {
         }
 
         const tournament = tournamentMap.get(tournamentName)
-        const status = getMatchStatus(match.strStatus)
+        const status = getMatchStatus(match.strStatus) || 'scheduled'
 
         tournament.matches.push({
           id: match.idEvent,
-          homeTeam: match.strHomeTeam,
-          awayTeam: match.strAwayTeam,
+          homeTeam: homeTeam || 'Player 1',
+          awayTeam: awayTeam || 'Player 2',
           homeScore: parseInt(match.intHomeScore || 0),
           awayScore: parseInt(match.intAwayScore || 0),
           date: match.dateEvent,
-          time: match.strTime || '00:00',
+          time: match.strTime || match.strTimeLocal || '00:00',
           status: status,
           type: determineType(league),
-          court: match.strVenue || 'Court',
+          court: match.strVenue || match.strCity || 'Court',
           sets: parseSetData(match),
           points: parsePointData(match),
         })
