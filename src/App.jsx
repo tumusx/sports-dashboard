@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import './App.css'
 import TypeFilter from './components/TypeFilter'
 import CategoryFilter from './components/CategoryFilter'
 import GamesList from './components/GamesList'
 import DebugPanel from './components/DebugPanel'
-import { useTheSportsDB, useATPTournaments } from './hooks/useTheSportsDB'
+import { useTodayMatches } from './hooks/useTodayMatches'
 
 function App() {
   const [selectedType, setSelectedType] = useState('all') // all, atp, wta
@@ -12,54 +12,62 @@ function App() {
   const [selectedTournament, setSelectedTournament] = useState(null)
   const [showCompleted, setShowCompleted] = useState(false)
 
-  // Buscar torneios ATP (LIVE + COMPLETED)
-  const { tournaments: allTournaments, loading: tournamentsLoading, hasTodayMatches, lastUpdate: tournamentsLastUpdate } = useATPTournaments()
+  // Buscar todos os jogos de hoje
+  const { tournaments, loading: tournamentsLoading, lastUpdate, error } = useTodayMatches()
 
-  // Separar por status
-  const liveTournaments = allTournaments.filter(t => t.status === 'LIVE')
-  const completedTournaments = allTournaments.filter(t => t.status === 'COMPLETED')
+  // Filtrar torneios por categoria
+  const filteredTournamentsByCategory = useMemo(() => {
+    if (selectedCategory === 'all') return tournaments
+    return tournaments.filter(t => t.category === selectedCategory)
+  }, [tournaments, selectedCategory])
 
-  // Filtrar por categoria
-  const filteredTournaments = (showCompleted ? completedTournaments : liveTournaments).filter(
-    t => selectedCategory === 'all' || t.category === selectedCategory
+  // Separar por status (LIVE / COMPLETED)
+  const liveTournaments = useMemo(() =>
+    filteredTournamentsByCategory.filter(t => t.liveCount > 0),
+    [filteredTournamentsByCategory]
   )
 
-  // Se não houver LIVE, mostrar COMPLETED automaticamente
-  useEffect(() => {
-    if (!hasTodayMatches && completedTournaments.length > 0) {
-      setShowCompleted(true)
-    } else if (hasTodayMatches) {
-      setShowCompleted(false)
-    }
-  }, [hasTodayMatches, completedTournaments.length])
+  const completedTournaments = useMemo(() =>
+    filteredTournamentsByCategory.filter(t => t.liveCount === 0 && t.finishedCount > 0),
+    [filteredTournamentsByCategory]
+  )
 
-  // Definir o primeiro torneio como padrão quando carregar
-  useEffect(() => {
-    if (filteredTournaments.length > 0 && !selectedTournament) {
-      setSelectedTournament(filteredTournaments[0].id)
-    }
-  }, [filteredTournaments])
+  // Auto-mostrar completed se não houver live
+  const shouldShowCompleted = liveTournaments.length === 0 && completedTournaments.length > 0
+  const displayShowCompleted = shouldShowCompleted || showCompleted
 
-  // Buscar jogos do torneio selecionado
-  const { games: rawGames, loading: gamesLoading, lastUpdate: gamesLastUpdate, error } = useTheSportsDB(selectedTournament)
+  // Torneios a mostrar
+  const tournamentsToShow = displayShowCompleted ? completedTournaments : liveTournaments
 
-  // Filtrar jogos por status (LIVE ou FINISHED baseado na seleção)
-  const filteredByStatus = rawGames.filter(game => {
-    if (showCompleted) return game.status === 'finished'
-    return game.status === 'ongoing'
-  })
+  // Selecionar primeiro torneio automaticamente
+  if (!selectedTournament && tournamentsToShow.length > 0) {
+    setSelectedTournament(tournamentsToShow[0].name)
+  }
+
+  // Obter dados do torneio selecionado
+  const currentTournament = tournamentsToShow.find(t => t.name === selectedTournament)
 
   // Filtrar jogos por tipo (ATP/WTA)
-  const filteredGames = filteredByStatus.filter(game => {
-    if (selectedType === 'all') return true
-    return game.type === selectedType
-  })
+  const filteredGames = useMemo(() => {
+    if (!currentTournament) return []
 
-  const currentTournament = filteredTournaments.find(t => t.id === selectedTournament)
-  const loading = tournamentsLoading || gamesLoading
+    return currentTournament.matches
+      .filter(game => {
+        // Filtrar por tipo
+        if (selectedType !== 'all' && game.type !== selectedType) return false
+        // Filtrar por status
+        if (displayShowCompleted && game.status !== 'finished') return false
+        if (!displayShowCompleted && game.status !== 'ongoing') return false
+        return true
+      })
+  }, [currentTournament, selectedType, displayShowCompleted])
 
-  // Use gamesLastUpdate se houver, senão use tournamentsLastUpdate
-  const lastUpdate = gamesLastUpdate || tournamentsLastUpdate
+  // Extrair categorias únicas
+  const availableCategories = useMemo(() => {
+    return Array.from(new Set(tournaments.map(t => t.category))).sort()
+  }, [tournaments])
+
+  const loading = tournamentsLoading
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 to-gray-900">
@@ -69,7 +77,7 @@ function App() {
           <h1 className="text-4xl font-bold text-white mb-2">
             🏆 ATP Live Dashboard
           </h1>
-          <p className="text-gray-400">Official ATP tournaments • Real-time scores & match tracking</p>
+          <p className="text-gray-400">All matches today • Real-time scores & tracking</p>
         </div>
 
         {/* Error Message */}
@@ -79,138 +87,168 @@ function App() {
           </div>
         )}
 
-        {/* Filters Section */}
-        <div className="mb-8 space-y-4">
-          {/* LIVE / COMPLETED Toggle */}
-          {liveTournaments.length > 0 && completedTournaments.length > 0 && (
+        {/* No Matches */}
+        {!loading && tournaments.length === 0 && (
+          <div className="mb-6 p-6 bg-orange-900/20 border border-orange-700 rounded-lg text-orange-400 text-center">
+            <p className="text-lg font-semibold">No tennis matches found for today</p>
+            <p className="text-sm mt-2">Check back later for upcoming matches</p>
+          </div>
+        )}
+
+        {tournaments.length > 0 && (
+          <>
+            {/* Filters Section */}
+            <div className="mb-8 space-y-4">
+              {/* LIVE / COMPLETED Toggle */}
+              {liveTournaments.length > 0 && completedTournaments.length > 0 && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">
+                    Match Status
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setShowCompleted(false)}
+                      className={`p-3 rounded-lg border-2 transition-all font-medium ${
+                        !displayShowCompleted
+                          ? 'bg-red-600 border-red-400 text-white'
+                          : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      🔴 LIVE ({liveTournaments.reduce((sum, t) => sum + t.liveCount, 0)})
+                    </button>
+                    <button
+                      onClick={() => setShowCompleted(true)}
+                      className={`p-3 rounded-lg border-2 transition-all font-medium ${
+                        displayShowCompleted
+                          ? 'bg-green-600 border-green-400 text-white'
+                          : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      ✓ COMPLETED ({completedTournaments.reduce((sum, t) => sum + t.finishedCount, 0)})
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Category Filter */}
+              {availableCategories.length > 1 && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">
+                    Filter by Tournament Type
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    <button
+                      onClick={() => setSelectedCategory('all')}
+                      className={`p-3 rounded-lg border-2 transition-all font-medium text-sm ${
+                        selectedCategory === 'all'
+                          ? 'bg-blue-600 border-blue-400 text-white'
+                          : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      🎾 All Types
+                    </button>
+                    {availableCategories.map(category => {
+                      const count = tournaments.filter(t => t.category === category).length
+                      return (
+                        <button
+                          key={category}
+                          onClick={() => setSelectedCategory(category)}
+                          className={`p-3 rounded-lg border-2 transition-all font-medium text-sm ${
+                            selectedCategory === category
+                              ? 'bg-purple-600 border-purple-400 text-white'
+                              : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+                          }`}
+                        >
+                          {category}
+                          <span className="text-xs opacity-75 ml-1">({count})</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Tournament Selector */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                  Select Tournament {displayShowCompleted ? '(Completed)' : '(Live)'}
+                </label>
+                {tournamentsToShow.length === 0 ? (
+                  <div className="w-full p-3 bg-gray-800 border border-orange-700 rounded-lg text-orange-400">
+                    {selectedCategory !== 'all'
+                      ? `No tournaments found in ${selectedCategory}`
+                      : displayShowCompleted
+                      ? 'No completed tournaments'
+                      : 'No live tournaments right now'}
+                  </div>
+                ) : (
+                  <select
+                    value={selectedTournament || ''}
+                    onChange={(e) => setSelectedTournament(e.target.value)}
+                    className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
+                  >
+                    {tournamentsToShow.map(tournament => (
+                      <option key={tournament.name} value={tournament.name}>
+                        {tournament.emoji} {tournament.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Type Filter */}
+              <TypeFilter
+                selectedType={selectedType}
+                onSelectType={setSelectedType}
+              />
+            </div>
+
+            {/* Status Bar */}
+            <div
+              className={`mb-6 p-4 rounded-lg border ${
+                displayShowCompleted
+                  ? 'bg-green-900/20 border-green-700'
+                  : 'bg-red-900/20 border-red-700'
+              }`}
+            >
+              <div className="flex items-center justify-between text-sm">
+                <div>
+                  <span className="text-gray-400">Last update: </span>
+                  <span className={displayShowCompleted ? 'text-green-400' : 'text-red-400'}>
+                    {lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : 'Loading...'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${
+                      loading
+                        ? 'bg-yellow-400 animate-pulse'
+                        : displayShowCompleted
+                        ? 'bg-green-400'
+                        : 'bg-red-400'
+                    }`}
+                  ></span>
+                  <span className="text-gray-400">
+                    {loading ? 'Syncing...' : displayShowCompleted ? 'Showing Completed' : 'Live'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Games List */}
             <div>
-              <label className="block text-sm font-semibold text-gray-300 mb-2">
-                Match Status
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setShowCompleted(false)}
-                  className={`p-3 rounded-lg border-2 transition-all font-medium ${
-                    !showCompleted
-                      ? 'bg-red-600 border-red-400 text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
-                  }`}
-                >
-                  🔴 LIVE ({liveTournaments.reduce((sum, t) => sum + (t.liveCount || 0), 0)})
-                </button>
-                <button
-                  onClick={() => setShowCompleted(true)}
-                  className={`p-3 rounded-lg border-2 transition-all font-medium ${
-                    showCompleted
-                      ? 'bg-green-600 border-green-400 text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
-                  }`}
-                >
-                  ✓ COMPLETED ({completedTournaments.reduce((sum, t) => sum + (t.finishedCount || 0), 0)})
-                </button>
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold text-white">
+                  {currentTournament?.name || 'Select a tournament'}
+                  <span className="ml-2 text-sm font-normal text-gray-400">
+                    ({filteredGames.length} matches)
+                  </span>
+                </h2>
               </div>
+              <GamesList games={filteredGames} loading={loading} />
             </div>
-          )}
-
-          {/* Category Filter - Show tournament type filter */}
-          {allTournaments.length > 0 && (
-            <CategoryFilter
-              tournaments={showCompleted ? completedTournaments : liveTournaments}
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-            />
-          )}
-
-          {/* Tournament Selector */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">
-              Select Tournament {showCompleted ? '(Completed Today)' : '(Live Now)'}
-            </label>
-            {tournamentsLoading ? (
-              <div className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-400">
-                Loading tournaments...
-              </div>
-            ) : filteredTournaments.length === 0 ? (
-              <div className="w-full p-3 bg-gray-800 border border-orange-700 rounded-lg text-orange-400">
-                {allTournaments.length === 0
-                  ? 'No tournaments found'
-                  : selectedCategory !== 'all'
-                  ? `No tournaments found in ${selectedCategory}`
-                  : showCompleted
-                  ? 'No completed tournaments today'
-                  : 'No live tournaments right now. Showing completed matches...'}
-              </div>
-            ) : (
-              <select
-                value={selectedTournament || ''}
-                onChange={(e) => setSelectedTournament(e.target.value)}
-                className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
-              >
-                {filteredTournaments.map(tournament => (
-                  <option key={tournament.id} value={tournament.id}>
-                    {tournament.emoji} {tournament.name}
-                    {showCompleted
-                      ? ` • ${tournament.finishedCount} finished`
-                      : ` • ${tournament.liveCount} live`}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Type Filter */}
-          <TypeFilter
-            selectedType={selectedType}
-            onSelectType={setSelectedType}
-          />
-        </div>
-
-        {/* Status Bar */}
-        <div className={`mb-6 p-4 rounded-lg border ${
-          showCompleted
-            ? 'bg-green-900/20 border-green-700'
-            : 'bg-red-900/20 border-red-700'
-        }`}>
-          <div className="flex items-center justify-between text-sm">
-            <div>
-              <span className="text-gray-400">Last update: </span>
-              <span className={showCompleted ? 'text-green-400' : 'text-red-400'}>
-                {lastUpdate
-                  ? new Date(lastUpdate).toLocaleTimeString()
-                  : 'Syncing...'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`inline-block w-2 h-2 rounded-full ${
-                loading
-                  ? 'bg-yellow-400 animate-pulse'
-                  : showCompleted
-                  ? 'bg-green-400'
-                  : 'bg-red-400'
-              }`}></span>
-              <span className="text-gray-400">
-                {loading
-                  ? 'Syncing...'
-                  : showCompleted
-                  ? 'Showing Completed'
-                  : 'Live'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Games List */}
-        <div>
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold text-white">
-              {currentTournament?.name || 'Select a tournament'}
-              <span className="ml-2 text-sm font-normal text-gray-400">
-                ({filteredGames.length} matches)
-              </span>
-            </h2>
-          </div>
-          <GamesList games={filteredGames} loading={loading} />
-        </div>
+          </>
+        )}
 
         {/* Debug Panel */}
         <DebugPanel />
