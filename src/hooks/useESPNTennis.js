@@ -123,7 +123,6 @@ export function useESPNTennis() {
             const homeLinescores = competitors[0]?.linescores || []
             const awayLinescores = competitors[1]?.linescores || []
 
-            const matchType = event.league.toLowerCase()
             tournament.matches.push({
               id: competition.id,
               homeTeam: homeTeam,
@@ -135,7 +134,7 @@ export function useESPNTennis() {
               date: competition.date || selectedDate,
               time: competition.startDate ? new Date(competition.startDate).toLocaleTimeString() : 'TBA',
               status: matchStatus,
-              type: matchType,
+              type: event.league.toLowerCase(),
               court: competition.venue?.fullName || competition.venue?.court || 'Unknown Court',
               sets: {
                 homeWon: homeScore,
