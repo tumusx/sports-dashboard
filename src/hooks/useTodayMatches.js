@@ -28,11 +28,15 @@ export function useTodayMatches() {
       const data = await response.json()
       const results = data.results || []
 
+      console.log('API Response:', { data, results, count: results.length })
+
       // API já filtra Tennis, mas podemos validar
       const tennisMatches = results.filter(event => {
         const sport = event.strSport || ''
         return sport.toLowerCase() === 'tennis' || results.length > 0
       })
+
+      console.log('Tennis Matches:', { tennisMatches, count: tennisMatches.length })
 
       // Agrupar por torneio e categoria
       const tournamentMap = new Map()
