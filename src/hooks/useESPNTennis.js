@@ -14,17 +14,15 @@ export function useESPNTennis() {
       setLoading(true)
       setError(null)
 
-      // Formato para a API ESPN: YYYYMMDD-YYYYMMDD (range)
+      // Formato para a API ESPN: YYYYMMDD (apenas a data, sem range)
       const dateFormatted = selectedDate.replace(/-/g, '')
-      // Buscar com 3 dias de range para garantir que capture as partidas
-      const dateRange = `${dateFormatted}-${dateFormatted}`
 
-      console.log('Fetching ESPN data for date:', selectedDate, 'range:', dateRange)
+      console.log('Fetching ESPN data for date:', selectedDate, 'formatted:', dateFormatted)
 
       // Buscar dados de ambas as ligas
       const [atpResponse, wtaResponse] = await Promise.all([
-        fetch(`${ESPN_API_BASE}/atp/scoreboard?dates=${dateRange}`),
-        fetch(`${ESPN_API_BASE}/wta/scoreboard?dates=${dateRange}`)
+        fetch(`${ESPN_API_BASE}/atp/scoreboard?dates=${dateFormatted}`),
+        fetch(`${ESPN_API_BASE}/wta/scoreboard?dates=${dateFormatted}`)
       ])
 
       if (!atpResponse.ok || !wtaResponse.ok) {
@@ -44,84 +42,100 @@ export function useESPNTennis() {
       const tournamentMap = new Map()
 
       allEvents.forEach(event => {
-        if (!event.competitions || event.competitions.length === 0) return
+        // Estrutura: event.groupings[].competitions[]
+        if (!event.groupings || event.groupings.length === 0) return
 
-        const competition = event.competitions[0]
-        const tournamentName = competition.tournament?.name || 'Unknown Tournament'
-        const tournamentId = competition.tournament?.id || 'unknown'
+        event.groupings.forEach(grouping => {
+          if (!grouping.competitions || grouping.competitions.length === 0) return
 
-        if (!tournamentMap.has(tournamentId)) {
-          tournamentMap.set(tournamentId, {
-            id: tournamentId,
-            name: tournamentName,
-            league: event.league,
-            emoji: getEmoji(tournamentName),
-            matches: [],
-            liveCount: 0,
-            finishedCount: 0,
+          grouping.competitions.forEach(competition => {
+            // Filtrar apenas competições do dia selecionado
+            const competitionDate = (competition.date || competition.startDate || '').split('T')[0]
+            const selectedDateFormatted = selectedDate
+
+            if (competitionDate !== selectedDateFormatted) return
+
+            const tournamentName = event.name || 'Unknown Tournament'
+            // Usar combinação de event.id + type para evitar duplicatas
+            const competitionType = grouping.grouping?.displayName || competition.type?.text || 'Singles'
+            const tournamentId = `${event.id}-${competitionType}`
+
+            if (!tournamentMap.has(tournamentId)) {
+              tournamentMap.set(tournamentId, {
+                id: tournamentId,
+                name: tournamentName,
+                league: event.league,
+                emoji: getEmoji(tournamentName),
+                matches: [],
+                liveCount: 0,
+                finishedCount: 0,
+              })
+            }
+
+            const tournament = tournamentMap.get(tournamentId)
+
+            // Converter status ESPN para nosso padrão
+            const statusType = competition.status?.type?.state || 'pre'
+            let matchStatus = 'scheduled'
+            if (statusType === 'in' || statusType === 'live') {
+              matchStatus = 'ongoing'
+            } else if (statusType === 'post') {
+              matchStatus = 'finished'
+            }
+
+            // Extrair dados dos competidores (jogadores)
+            const competitors = competition.competitors || []
+            let homeTeam = 'Player 1'
+            let awayTeam = 'Player 2'
+            let homeScore = 0
+            let awayScore = 0
+
+            if (competitors.length >= 2) {
+              const home = competitors[0]
+              const away = competitors[1]
+
+              homeTeam = home.athlete?.displayName || home.athlete?.fullName || 'Player 1'
+              awayTeam = away.athlete?.displayName || away.athlete?.fullName || 'Player 2'
+
+              // Em tennis, contar quantos sets cada jogador ganhou
+              if (home.linescores && away.linescores) {
+                homeScore = home.linescores.filter(s => s.winner).length
+                awayScore = away.linescores.filter(s => s.winner).length
+              }
+            }
+
+            tournament.matches.push({
+              id: competition.id,
+              homeTeam: homeTeam,
+              awayTeam: awayTeam,
+              homeScore: homeScore,
+              awayScore: awayScore,
+              date: competition.date || selectedDate,
+              time: competition.startDate ? new Date(competition.startDate).toLocaleTimeString() : 'TBA',
+              status: matchStatus,
+              type: event.league.toLowerCase(),
+              court: competition.venue?.fullName || competition.venue?.court || 'Unknown Court',
+              sets: {
+                homeWon: homeScore,
+                awayWon: awayScore,
+                current: 0,
+              },
+              points: {
+                home: 0,
+                away: 0,
+                homeGames: 0,
+                awayGames: 0,
+              },
+            })
+
+            // Contar status
+            if (matchStatus === 'ongoing') {
+              tournament.liveCount++
+            } else {
+              tournament.finishedCount++
+            }
           })
-        }
-
-        const tournament = tournamentMap.get(tournamentId)
-        const status = event.status?.toLowerCase() || 'scheduled'
-
-        // Extrair dados dos competidores
-        const competitors = competition.competitors || []
-        let homeTeam = ''
-        let awayTeam = ''
-        let homeScore = 0
-        let awayScore = 0
-
-        if (competitors.length >= 2) {
-          const home = competitors[0]
-          const away = competitors[1]
-
-          homeTeam = home.athlete?.displayName || home.team?.displayName || 'Player 1'
-          awayTeam = away.athlete?.displayName || away.team?.displayName || 'Player 2'
-
-          // Extrair scores
-          homeScore = parseInt(home.score || 0)
-          awayScore = parseInt(away.score || 0)
-        }
-
-        // Converter status ESPN para nosso padrão
-        let matchStatus = 'scheduled'
-        if (status.includes('in progress') || status.includes('live')) {
-          matchStatus = 'ongoing'
-        } else if (status.includes('final') || status.includes('completed') || status.includes('finished')) {
-          matchStatus = 'finished'
-        }
-
-        tournament.matches.push({
-          id: event.id,
-          homeTeam: homeTeam,
-          awayTeam: awayTeam,
-          homeScore: homeScore,
-          awayScore: awayScore,
-          date: event.date || selectedDate,
-          time: event.links?.[0]?.text || 'TBA',
-          status: matchStatus,
-          type: event.league.toLowerCase(),
-          court: competition.venue?.fullName || 'Unknown Venue',
-          sets: {
-            homeWon: homeScore,
-            awayWon: awayScore,
-            current: 0,
-          },
-          points: {
-            home: 0,
-            away: 0,
-            homeGames: 0,
-            awayGames: 0,
-          },
         })
-
-        // Contar status
-        if (matchStatus === 'ongoing') {
-          tournament.liveCount++
-        } else {
-          tournament.finishedCount++
-        }
       })
 
       // Converter para array e ordenar
