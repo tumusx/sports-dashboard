@@ -3,6 +3,7 @@ import './App.css'
 import TypeFilter from './components/TypeFilter'
 import CategoryFilter from './components/CategoryFilter'
 import GamesList from './components/GamesList'
+import DebugPanel from './components/DebugPanel'
 import { useTheSportsDB, useATPTournaments } from './hooks/useTheSportsDB'
 
 function App() {
@@ -210,6 +211,9 @@ function App() {
           </div>
           <GamesList games={filteredGames} loading={loading} />
         </div>
+
+        {/* Debug Panel */}
+        <DebugPanel />
       </div>
     </div>
   )
