@@ -50,10 +50,18 @@ function App() {
   const filteredGames = useMemo(() => {
     if (!currentTournament) return []
 
-    return currentTournament.matches
+    console.log(`[FILTER DEBUG] selectedType=${selectedType}, tournament=${currentTournament.name}, totalMatches=${currentTournament.matches.length}`)
+    const typeCount = {}
+    currentTournament.matches.forEach(m => { typeCount[m.type] = (typeCount[m.type] || 0) + 1 })
+    console.log(`[FILTER DEBUG] Match types in tournament:`, typeCount)
+
+    const filtered = currentTournament.matches
       .filter(game => {
         // Filtrar por tipo
-        if (selectedType !== 'all' && game.type !== selectedType) return false
+        if (selectedType !== 'all' && game.type !== selectedType) {
+          console.log(`[FILTER DEBUG] Excluded ${game.homeTeam} vs ${game.awayTeam}: type=${game.type} !== selectedType=${selectedType}`)
+          return false
+        }
         // Filtrar por status
         // ongoing = LIVE
         // tudo mais (finished, scheduled, null) = COMPLETED
@@ -65,6 +73,9 @@ function App() {
           return game.status === 'ongoing'
         }
       })
+
+    console.log(`[FILTER DEBUG] Result: ${filtered.length} matches after filter`)
+    return filtered
   }, [currentTournament, selectedType, displayShowCompleted])
 
   // Extrair categorias únicas
