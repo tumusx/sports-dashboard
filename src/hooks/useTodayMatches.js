@@ -106,9 +106,11 @@ export function useTodayMatches() {
           points: parsePointData(match),
         })
 
+        // Contar todos os matches, independente do status
         if (status === 'ongoing') {
           tournament.liveCount++
-        } else if (status === 'finished') {
+        } else {
+          // Contar como 'finished' se não está ao vivo (inclui finished, scheduled, null)
           tournament.finishedCount++
         }
       })
