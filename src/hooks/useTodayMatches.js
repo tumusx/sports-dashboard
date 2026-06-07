@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react'
 
 const API_KEY = '123'
-const API_BASE = 'https://www.thesportsdb.com/api/v1/json'
-// CORS proxy alternativo mais confiável
-const CORS_PROXY = 'https://api.allorigins.win/raw?url='
+const API_BASE = '/api'
 
 export function useTodayMatches() {
   const [tournaments, setTournaments] = useState([])
@@ -23,9 +21,8 @@ export function useTodayMatches() {
       // Free tier endpoint: eventsday.php?d=YYYY-MM-DD&s=Tennis
       // Usar CORS proxy para contornar bloqueio
       const apiUrl = `${API_BASE}/${API_KEY}/eventsday.php?d=${today}&s=Tennis`
-      const proxyUrl = `${CORS_PROXY}${encodeURIComponent(apiUrl)}`
 
-      const response = await fetch(proxyUrl)
+      const response = await fetch(apiUrl)
 
       if (!response.ok) throw new Error('Failed to fetch today matches')
 
@@ -41,12 +38,33 @@ export function useTodayMatches() {
         return sport.toLowerCase() === 'tennis' || results.length > 0
       })
 
+      // Buscar resultados detalhados para cada match
+      const matchesWithResults = await Promise.all(
+        tennisMatches.map(async (match) => {
+          try {
+            const resultResponse = await fetch(
+              `${API_BASE}/${API_KEY}/eventresults.php?id=${match.idEvent}`
+            )
+            const resultData = await resultResponse.json()
+            const result = resultData.results ? resultData.results[0] : null
+
+            return {
+              ...match,
+              resultDetail: result,
+            }
+          } catch (err) {
+            console.error(`Error fetching result for ${match.idEvent}:`, err)
+            return match
+          }
+        })
+      )
+
       console.log('Tennis Matches:', { tennisMatches, count: tennisMatches.length })
 
       // Agrupar por torneio e categoria
       const tournamentMap = new Map()
 
-      tennisMatches.forEach(match => {
+      matchesWithResults.forEach(match => {
         // Parse strEvent para extrair nome do torneio e jogadores
         // Formato: "Tournament Name Player1 vs Player2"
         const eventStr = match.strEvent || 'Unknown'
@@ -91,12 +109,25 @@ export function useTodayMatches() {
         const tournament = tournamentMap.get(tournamentName)
         const status = getMatchStatus(match.strStatus) || 'scheduled'
 
-        // Tentar extrair score de strResult se intHomeScore for null
-        let homeScore = parseInt(match.intHomeScore || 0)
-        let awayScore = parseInt(match.intAwayScore || 0)
+        // Extrair scores dos dados detalhados de resultado
+        let homeScore = 0
+        let awayScore = 0
 
-        // Se scores são 0 mas tem strResult, tentar parsear
-        if ((homeScore === 0 && awayScore === 0) && match.strResult) {
+        if (match.resultDetail) {
+          // Tentar extrair do resultado detalhado
+          const detail = match.resultDetail
+          homeScore = parseInt(detail.intHomeScore || 0)
+          awayScore = parseInt(detail.intAwayScore || 0)
+        }
+
+        // Fallback: tentar de intHomeScore/intAwayScore
+        if (homeScore === 0 && awayScore === 0) {
+          homeScore = parseInt(match.intHomeScore || 0)
+          awayScore = parseInt(match.intAwayScore || 0)
+        }
+
+        // Último fallback: tentar parsear strResult
+        if (homeScore === 0 && awayScore === 0 && match.strResult) {
           const resultParts = match.strResult.trim().split(/[-–]/).map(s => s.trim())
           if (resultParts.length === 2) {
             homeScore = parseInt(resultParts[0]) || 0
