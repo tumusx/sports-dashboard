@@ -3,7 +3,6 @@ import './App.css'
 import TypeFilter from './components/TypeFilter'
 import CategoryFilter from './components/CategoryFilter'
 import GamesList from './components/GamesList'
-import DebugPanel from './components/DebugPanel'
 import { useTodayMatches } from './hooks/useTodayMatches'
 
 function App() {
@@ -250,8 +249,6 @@ function App() {
           </>
         )}
 
-        {/* Debug Panel */}
-        <DebugPanel />
       </div>
     </div>
   )
