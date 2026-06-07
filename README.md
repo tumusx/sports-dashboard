@@ -70,21 +70,6 @@ fetch(`https://www.thesportsdb.com/api/v1/eventslast.php?id=${tournamentId}`)
 - Intervalo recomendado: 30 segundos
 - Cobertura: ATP, WTA, Grand Slams
 
-## 📦 Deploy
-
-### Vercel (Recomendado)
-
-```bash
-npm i -g vercel
-vercel
-```
-
-### Outras opções
-- Netlify
-- GitHub Pages
-- Railway
-- Render
-
 ## 🎯 Roadmap
 
 - [ ] Integrar com TheSportsDB API
