@@ -19,38 +19,17 @@ export function useESPNTennis() {
 
       console.log('Fetching ESPN data for date:', selectedDate, 'formatted:', dateFormatted)
 
-      // Buscar dados de ambas as ligas
-      const [atpResponse, wtaResponse] = await Promise.all([
-        fetch(`${ESPN_API_BASE}/atp/scoreboard?dates=${dateFormatted}`),
-        fetch(`${ESPN_API_BASE}/wta/scoreboard?dates=${dateFormatted}`)
-      ])
+      // Buscar apenas ATP por enquanto (evita duplicação)
+      const atpResponse = await fetch(`${ESPN_API_BASE}/atp/scoreboard?dates=${dateFormatted}`)
 
-      if (!atpResponse.ok || !wtaResponse.ok) {
+      if (!atpResponse.ok) {
         throw new Error('Failed to fetch ESPN tennis data')
       }
 
       const atpData = await atpResponse.json()
-      const wtaData = await wtaResponse.json()
 
-      // Processar eventos de ambas as ligas (deduplicar por competition.id)
-      const competitionIds = new Set()
-      const allEvents = []
-
-      ;[atpData, wtaData].forEach((leagueData, idx) => {
-        const league = idx === 0 ? 'ATP' : 'WTA'
-        ;(leagueData.events || []).forEach(event => {
-          if (event.groupings) {
-            event.groupings.forEach(grouping => {
-              ;(grouping.competitions || []).forEach(comp => {
-                if (!competitionIds.has(comp.id)) {
-                  competitionIds.add(comp.id)
-                  allEvents.push({ ...event, league })
-                }
-              })
-            })
-          }
-        })
-      })
+      // Processar eventos de ATP
+      const allEvents = (atpData.events || []).map(e => ({ ...e, league: 'ATP' }))
 
       // Agrupar por torneio
       const tournamentMap = new Map()
@@ -111,6 +90,8 @@ export function useESPNTennis() {
             if (competitors.length >= 2) {
               const home = competitors[0]
               const away = competitors[1]
+
+              console.log('Competitor data:', { home, away })
 
               homeTeam = home.athlete?.displayName || home.athlete?.fullName || 'Player 1'
               awayTeam = away.athlete?.displayName || away.athlete?.fullName || 'Player 2'
