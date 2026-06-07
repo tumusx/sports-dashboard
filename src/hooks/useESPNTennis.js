@@ -100,6 +100,10 @@ export function useESPNTennis() {
               // Pular competições sem nomes (duplos/outras categorias)
               if (!homeTeam || !awayTeam) return
 
+              // Extrair dados dos atletas (bandeiras, país)
+              const homeAthleteFlag = home.athlete?.flag?.href
+              const awayAthleteFlag = away.athlete?.flag?.href
+
               // Em tennis, contar quantos sets cada jogador ganhou
               if (home.linescores && away.linescores) {
                 homeScore = home.linescores.filter(s => s.winner).length
@@ -115,6 +119,8 @@ export function useESPNTennis() {
               id: competition.id,
               homeTeam: homeTeam,
               awayTeam: awayTeam,
+              homeAthleteFlag: homeAthleteFlag,
+              awayAthleteFlag: awayAthleteFlag,
               homeScore: homeScore,
               awayScore: awayScore,
               date: competition.date || selectedDate,

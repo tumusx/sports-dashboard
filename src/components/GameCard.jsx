@@ -49,7 +49,14 @@ export default function GameCard({ game }) {
         <div className={`flex items-end justify-between gap-3 p-2 rounded ${
           winner === 'home' ? 'bg-green-900/30' : ''
         }`}>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            {game.homeAthleteFlag && (
+              <img
+                src={game.homeAthleteFlag}
+                alt="flag"
+                className="w-5 h-3 object-cover rounded"
+              />
+            )}
             <div className={`text-sm font-semibold truncate ${
               winner === 'home' ? 'text-green-400' : 'text-white'
             }`}>
@@ -86,7 +93,14 @@ export default function GameCard({ game }) {
         <div className={`flex items-end justify-between gap-3 p-2 rounded ${
           winner === 'away' ? 'bg-green-900/30' : ''
         }`}>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            {game.awayAthleteFlag && (
+              <img
+                src={game.awayAthleteFlag}
+                alt="flag"
+                className="w-5 h-3 object-cover rounded"
+              />
+            )}
             <div className={`text-sm font-semibold truncate ${
               winner === 'away' ? 'text-green-400' : 'text-white'
             }`}>
