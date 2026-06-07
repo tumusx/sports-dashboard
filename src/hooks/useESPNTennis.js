@@ -123,6 +123,7 @@ export function useESPNTennis() {
             const homeLinescores = competitors[0]?.linescores || []
             const awayLinescores = competitors[1]?.linescores || []
 
+            const matchType = event.league.toLowerCase()
             tournament.matches.push({
               id: competition.id,
               homeTeam: homeTeam,
@@ -134,7 +135,7 @@ export function useESPNTennis() {
               date: competition.date || selectedDate,
               time: competition.startDate ? new Date(competition.startDate).toLocaleTimeString() : 'TBA',
               status: matchStatus,
-              type: event.league.toLowerCase(),
+              type: matchType,
               court: competition.venue?.fullName || competition.venue?.court || 'Unknown Court',
               sets: {
                 homeWon: homeScore,
@@ -171,11 +172,20 @@ export function useESPNTennis() {
           return b.matches.length - a.matches.length
         })
 
+      // Log types distribution
+      const typeCounts = {}
+      tournamentList.forEach(t => {
+        t.matches.forEach(m => {
+          typeCounts[m.type] = (typeCounts[m.type] || 0) + 1
+        })
+      })
+
       console.log('ESPN Tennis Data:', {
         date: selectedDate,
         tournaments: tournamentList.length,
         matches: tournamentList.reduce((sum, t) => sum + t.matches.length, 0),
         live: tournamentList.reduce((sum, t) => sum + t.liveCount, 0),
+        typeDistribution: typeCounts,
       })
 
       setTournaments(tournamentList)
