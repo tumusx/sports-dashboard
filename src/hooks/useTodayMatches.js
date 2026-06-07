@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 
 const API_KEY = '123'
-const API_BASE = `https://www.thesportsdb.com/api/v2/json/${API_KEY}`
+const API_BASE = 'https://www.thesportsdb.com/api/v1/json'
 
 export function useTodayMatches() {
   const [tournaments, setTournaments] = useState([])
@@ -10,23 +10,34 @@ export function useTodayMatches() {
   const [error, setError] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
 
-  const fetchLiveMatches = async () => {
+  const fetchTodayMatches = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Buscar live scores de tênis
-      const response = await fetch(`${API_BASE}/tennis`)
+      const today = new Date().toISOString().split('T')[0]
+      const day = today.replace(/-/g, '-') // formato YYYY-MM-DD
 
-      if (!response.ok) throw new Error('Failed to fetch live matches')
+      // Buscar TODOS os eventos do dia
+      const response = await fetch(
+        `${API_BASE}/${API_KEY}/eventsday.php?d=${day}`
+      )
+
+      if (!response.ok) throw new Error('Failed to fetch today matches')
 
       const data = await response.json()
-      const results = data.result || []
+      const results = data.results || []
 
-      // Processar matches
+      // Filtrar apenas Tennis
+      const tennisMatches = results.filter(event => {
+        const sport = event.strSport || ''
+        return sport.toLowerCase() === 'tennis'
+      })
+
+      // Agrupar por torneio e categoria
       const tournamentMap = new Map()
 
-      results.forEach(match => {
+      tennisMatches.forEach(match => {
         const tournamentName = match.strEvent || 'Unknown'
         const league = match.strLeague || 'ATP'
         const category = determineTournamentCategory(league)
@@ -78,20 +89,20 @@ export function useTodayMatches() {
         })
 
       setTournaments(tournamentList)
-      setAllMatches(results)
+      setAllMatches(tennisMatches)
       setLastUpdate(new Date())
     } catch (err) {
       setError(err.message)
-      console.error('Error fetching live scores:', err)
+      console.error('Error fetching today matches:', err)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchLiveMatches()
+    fetchTodayMatches()
     // Atualizar a cada 30 segundos
-    const interval = setInterval(fetchLiveMatches, 30000)
+    const interval = setInterval(fetchTodayMatches, 30000)
     return () => clearInterval(interval)
   }, [])
 
