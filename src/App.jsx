@@ -1,41 +1,48 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import TypeFilter from './components/TypeFilter'
+import CategoryFilter from './components/CategoryFilter'
 import GamesList from './components/GamesList'
-import { useTheSportsDB, useATPTournaments, THESPORTSDB_TOURNAMENT_IDS } from './hooks/useTheSportsDB'
+import { useTheSportsDB, useATPTournaments } from './hooks/useTheSportsDB'
 
 function App() {
   const [selectedType, setSelectedType] = useState('all') // all, atp, wta
+  const [selectedCategory, setSelectedCategory] = useState('all') // tournament type
   const [selectedTournament, setSelectedTournament] = useState(null)
   const [showCompleted, setShowCompleted] = useState(false)
 
   // Buscar torneios ATP (LIVE + COMPLETED)
-  const { tournaments: allTournaments, loading: tournamentsLoading, hasTodayMatches } = useATPTournaments()
+  const { tournaments: allTournaments, loading: tournamentsLoading, hasTodayMatches, lastUpdate: tournamentsLastUpdate } = useATPTournaments()
 
   // Separar por status
   const liveTournaments = allTournaments.filter(t => t.status === 'LIVE')
   const completedTournaments = allTournaments.filter(t => t.status === 'COMPLETED')
 
+  // Filtrar por categoria
+  const filteredTournaments = (showCompleted ? completedTournaments : liveTournaments).filter(
+    t => selectedCategory === 'all' || t.category === selectedCategory
+  )
+
   // Se não houver LIVE, mostrar COMPLETED automaticamente
   useEffect(() => {
     if (!hasTodayMatches && completedTournaments.length > 0) {
       setShowCompleted(true)
+    } else if (hasTodayMatches) {
+      setShowCompleted(false)
     }
   }, [hasTodayMatches, completedTournaments.length])
 
   // Definir o primeiro torneio como padrão quando carregar
   useEffect(() => {
-    const tournamentsToUse = showCompleted ? completedTournaments : liveTournaments
-    if (tournamentsToUse.length > 0 && !selectedTournament) {
-      setSelectedTournament(tournamentsToUse[0].id)
+    if (filteredTournaments.length > 0 && !selectedTournament) {
+      setSelectedTournament(filteredTournaments[0].id)
     }
-  }, [liveTournaments, completedTournaments, showCompleted])
+  }, [filteredTournaments])
 
   // Buscar jogos do torneio selecionado
-  const { games: rawGames, loading: gamesLoading, lastUpdate, error } = useTheSportsDB(selectedTournament)
+  const { games: rawGames, loading: gamesLoading, lastUpdate: gamesLastUpdate, error } = useTheSportsDB(selectedTournament)
 
   // Filtrar jogos por status (LIVE ou FINISHED baseado na seleção)
-  const statusFilter = showCompleted ? 'finished' : 'ongoing'
   const filteredByStatus = rawGames.filter(game => {
     if (showCompleted) return game.status === 'finished'
     return game.status === 'ongoing'
@@ -47,9 +54,11 @@ function App() {
     return game.type === selectedType
   })
 
-  const tournamentsToShow = showCompleted ? completedTournaments : liveTournaments
-  const currentTournament = tournamentsToShow.find(t => t.id === selectedTournament)
+  const currentTournament = filteredTournaments.find(t => t.id === selectedTournament)
   const loading = tournamentsLoading || gamesLoading
+
+  // Use gamesLastUpdate se houver, senão use tournamentsLastUpdate
+  const lastUpdate = gamesLastUpdate || tournamentsLastUpdate
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 to-gray-900">
@@ -102,6 +111,15 @@ function App() {
             </div>
           )}
 
+          {/* Category Filter - Show tournament type filter */}
+          {allTournaments.length > 0 && (
+            <CategoryFilter
+              tournaments={showCompleted ? completedTournaments : liveTournaments}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+            />
+          )}
+
           {/* Tournament Selector */}
           <div>
             <label className="block text-sm font-semibold text-gray-300 mb-2">
@@ -111,9 +129,13 @@ function App() {
               <div className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-400">
                 Loading tournaments...
               </div>
-            ) : tournamentsToShow.length === 0 ? (
+            ) : filteredTournaments.length === 0 ? (
               <div className="w-full p-3 bg-gray-800 border border-orange-700 rounded-lg text-orange-400">
-                {showCompleted
+                {allTournaments.length === 0
+                  ? 'No tournaments found'
+                  : selectedCategory !== 'all'
+                  ? `No tournaments found in ${selectedCategory}`
+                  : showCompleted
                   ? 'No completed tournaments today'
                   : 'No live tournaments right now. Showing completed matches...'}
               </div>
@@ -123,7 +145,7 @@ function App() {
                 onChange={(e) => setSelectedTournament(e.target.value)}
                 className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
               >
-                {tournamentsToShow.map(tournament => (
+                {filteredTournaments.map(tournament => (
                   <option key={tournament.id} value={tournament.id}>
                     {tournament.emoji} {tournament.name}
                     {showCompleted
@@ -152,7 +174,9 @@ function App() {
             <div>
               <span className="text-gray-400">Last update: </span>
               <span className={showCompleted ? 'text-green-400' : 'text-red-400'}>
-                {lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : 'Initializing...'}
+                {lastUpdate
+                  ? new Date(lastUpdate).toLocaleTimeString()
+                  : 'Syncing...'}
               </span>
             </div>
             <div className="flex items-center gap-2">

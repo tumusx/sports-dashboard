@@ -5,11 +5,17 @@ const API_BASE = 'https://www.thesportsdb.com/api/v1'
 
 // ATP Torneios Oficiais com seus IDs no TheSportsDB
 const ATP_TOURNAMENTS = [
-  { id: '133632', name: '🦘 Australian Open', emoji: '🦘' },
-  { id: '133612', name: '🧡 French Open', emoji: '🧡' },
-  { id: '133602', name: '🌱 Wimbledon', emoji: '🌱' },
-  { id: '133622', name: '🗽 US Open', emoji: '🗽' },
-  { id: '135018', name: '👑 ATP Finals', emoji: '👑' },
+  // Grand Slams
+  { id: '133632', name: '🦘 Australian Open', emoji: '🦘', category: 'Grand Slam', level: 'Grand Slam' },
+  { id: '133612', name: '🧡 French Open', emoji: '🧡', category: 'Grand Slam', level: 'Grand Slam' },
+  { id: '133602', name: '🌱 Wimbledon', emoji: '🌱', category: 'Grand Slam', level: 'Grand Slam' },
+  { id: '133622', name: '🗽 US Open', emoji: '🗽', category: 'Grand Slam', level: 'Grand Slam' },
+  // Masters 1000
+  { id: '135018', name: '👑 ATP Finals', emoji: '👑', category: 'Masters 1000', level: 'Masters 1000' },
+  { id: '133642', name: '🏛️ Rome Masters', emoji: '🏛️', category: 'Masters 1000', level: 'Masters 1000' },
+  { id: '133652', name: '🇫🇷 Paris Masters', emoji: '🇫🇷', category: 'Masters 1000', level: 'Masters 1000' },
+  // ATP 500
+  { id: '133662', name: '🏖️ ATP 500', emoji: '🏖️', category: 'ATP 500', level: 'ATP 500' },
 ]
 
 export function useTheSportsDB(tournamentId) {
@@ -69,72 +75,84 @@ export function useTheSportsDB(tournamentId) {
   return { games, loading, error, lastUpdate }
 }
 
-// Hook para buscar todos os torneios ATP (LIVE + FINISHED today)
+// Hook para buscar todos os torneios ATP (LIVE + COMPLETED today)
 export function useATPTournaments() {
   const [tournaments, setTournaments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [lastUpdate, setLastUpdate] = useState(null)
   const [hasTodayMatches, setHasTodayMatches] = useState(false)
 
-  useEffect(() => {
-    const checkTournaments = async () => {
-      try {
-        setLoading(true)
-        const allTournaments = []
-        const today = new Date().toISOString().split('T')[0]
+  const checkTournaments = async () => {
+    try {
+      setLoading(true)
+      const allTournaments = []
+      const today = new Date().toISOString().split('T')[0]
+      let hasAnyLive = false
 
-        for (const tournament of ATP_TOURNAMENTS) {
-          const response = await fetch(
-            `${API_BASE}/eventslast.php?id=${tournament.id}`
-          )
+      for (const tournament of ATP_TOURNAMENTS) {
+        const response = await fetch(
+          `${API_BASE}/eventslast.php?id=${tournament.id}`
+        )
 
-          if (response.ok) {
-            const data = await response.json()
-            if (data.results && data.results.length > 0) {
-              // Filtrar apenas jogos de hoje (LIVE ou FINISHED)
-              const todayMatches = data.results.filter(event => {
-                const eventDate = event.dateEvent || ''
-                return eventDate.startsWith(today.split('-').join(''))
+        if (response.ok) {
+          const data = await response.json()
+          if (data.results && data.results.length > 0) {
+            // Filtrar apenas jogos de hoje (LIVE ou FINISHED)
+            const todayMatches = data.results.filter(event => {
+              const eventDate = event.dateEvent || ''
+              // Normalizar datas YYYYMMDD ou YYYY-MM-DD
+              const normalizedDate = eventDate.replace(/-/g, '')
+              const todayNormalized = today.replace(/-/g, '')
+              return normalizedDate.startsWith(todayNormalized)
+            })
+
+            if (todayMatches.length > 0) {
+              const liveCount = todayMatches.filter(e =>
+                getMatchStatus(e.strStatus) === 'ongoing'
+              ).length
+              const finishedCount = todayMatches.filter(e =>
+                getMatchStatus(e.strStatus) === 'finished'
+              ).length
+
+              allTournaments.push({
+                id: tournament.id,
+                name: tournament.name,
+                emoji: tournament.emoji,
+                category: tournament.category,
+                level: tournament.level,
+                gameCount: todayMatches.length,
+                liveCount,
+                finishedCount,
+                status: liveCount > 0 ? 'LIVE' : 'COMPLETED',
               })
 
-              if (todayMatches.length > 0) {
-                const liveCount = todayMatches.filter(e =>
-                  getMatchStatus(e.strStatus) === 'ongoing'
-                ).length
-                const finishedCount = todayMatches.filter(e =>
-                  getMatchStatus(e.strStatus) === 'finished'
-                ).length
-
-                allTournaments.push({
-                  id: tournament.id,
-                  name: tournament.name,
-                  emoji: tournament.emoji,
-                  gameCount: todayMatches.length,
-                  liveCount,
-                  finishedCount,
-                  status: liveCount > 0 ? 'LIVE' : 'COMPLETED',
-                })
-
-                if (liveCount > 0) {
-                  setHasTodayMatches(true)
-                }
+              if (liveCount > 0) {
+                hasAnyLive = true
               }
             }
           }
         }
-
-        setTournaments(allTournaments)
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
       }
-    }
 
+      setTournaments(allTournaments)
+      setHasTodayMatches(hasAnyLive)
+      setLastUpdate(new Date())
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     checkTournaments()
+    // Atualizar a cada 30 segundos
+    const interval = setInterval(checkTournaments, 30000)
+    return () => clearInterval(interval)
   }, [])
 
-  return { tournaments, loading, error, hasTodayMatches }
+  return { tournaments, loading, error, lastUpdate, hasTodayMatches }
 }
 
 function getMatchStatus(status) {
@@ -146,20 +164,16 @@ function getMatchStatus(status) {
 }
 
 function parseSetData(event) {
-  // Sets vencidos/perdidos
-  // TheSportsDB armazena em: intHomeScore / intAwayScore
   const home = parseInt(event.intHomeScore || 0)
   const away = parseInt(event.intAwayScore || 0)
   return {
     homeWon: home,
     awayWon: away,
-    current: 0, // Set atual (será atualizado se houver info detalhada)
+    current: 0,
   }
 }
 
 function parsePointData(event) {
-  // Pontos atuais do game (se disponível)
-  // Alguns eventos têm essa info em campos adicionais
   const homeScore = parseInt(event.intHomeScore || 0)
   const awayScore = parseInt(event.intAwayScore || 0)
 
