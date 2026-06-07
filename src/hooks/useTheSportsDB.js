@@ -3,6 +3,15 @@ import { useState, useEffect } from 'react'
 // TheSportsDB Free API - 30 requests/minute limit
 const API_BASE = 'https://www.thesportsdb.com/api/v1'
 
+// ATP Torneios Oficiais com seus IDs no TheSportsDB
+const ATP_TOURNAMENTS = [
+  { id: '133632', name: '🦘 Australian Open', emoji: '🦘' },
+  { id: '133612', name: '🧡 French Open', emoji: '🧡' },
+  { id: '133602', name: '🌱 Wimbledon', emoji: '🌱' },
+  { id: '133622', name: '🗽 US Open', emoji: '🗽' },
+  { id: '135018', name: '👑 ATP Finals', emoji: '👑' },
+]
+
 export function useTheSportsDB(tournamentId) {
   const [games, setGames] = useState([])
   const [loading, setLoading] = useState(false)
@@ -13,10 +22,6 @@ export function useTheSportsDB(tournamentId) {
     try {
       setLoading(true)
       setError(null)
-
-      // Para buscar eventos de um evento específico:
-      // GET /eventslast.php?id=133602  (Wimbledon 2024)
-      // GET /eventslast.php?id=133603  (US Open 2024)
 
       const response = await fetch(
         `${API_BASE}/eventslast.php?id=${tournamentId}`
@@ -34,13 +39,15 @@ export function useTheSportsDB(tournamentId) {
           homeScore: parseInt(event.intHomeScore || 0),
           awayScore: parseInt(event.intAwayScore || 0),
           date: event.dateEvent,
-          time: event.strTime,
-          status: event.strStatus || 'Not Started',
+          time: event.strTime || '00:00',
+          status: getMatchStatus(event.strStatus),
           type: determineType(event.strLeague),
-          court: event.strVenue || 'Unknown Court',
+          court: event.strVenue || 'Court',
+          sets: parseSetData(event),
+          points: parsePointData(event),
         }))
 
-        setGames(formattedGames)
+        setGames(formattedGames.filter(g => g.status === 'ongoing' || g.status === 'finished'))
       }
       setLastUpdate(new Date())
     } catch (err) {
@@ -54,14 +61,90 @@ export function useTheSportsDB(tournamentId) {
   useEffect(() => {
     if (tournamentId) {
       fetchGames()
-      // Respeita o rate limit: 30 req/min = 1 req a cada 2 segundos
-      // Usar 30 segundos é seguro e permite múltiplas requisições
       const interval = setInterval(fetchGames, 30000)
       return () => clearInterval(interval)
     }
   }, [tournamentId])
 
   return { games, loading, error, lastUpdate }
+}
+
+// Hook para buscar todos os torneios ATP em LIVE
+export function useATPTournaments() {
+  const [tournaments, setTournaments] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const checkTournaments = async () => {
+      try {
+        setLoading(true)
+        const liveTournaments = []
+
+        for (const tournament of ATP_TOURNAMENTS) {
+          const response = await fetch(
+            `${API_BASE}/eventslast.php?id=${tournament.id}`
+          )
+
+          if (response.ok) {
+            const data = await response.json()
+            if (data.results && data.results.length > 0) {
+              liveTournaments.push({
+                id: tournament.id,
+                name: tournament.name,
+                emoji: tournament.emoji,
+                gameCount: data.results.length,
+              })
+            }
+          }
+        }
+
+        setTournaments(liveTournaments)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkTournaments()
+  }, [])
+
+  return { tournaments, loading, error }
+}
+
+function getMatchStatus(status) {
+  if (!status) return 'pending'
+  const lower = status.toLowerCase()
+  if (lower.includes('live') || lower.includes('ongoing') || lower.includes('in progress')) return 'ongoing'
+  if (lower.includes('finished') || lower.includes('concluded') || lower.includes('ended')) return 'finished'
+  return 'pending'
+}
+
+function parseSetData(event) {
+  // Sets vencidos/perdidos
+  // TheSportsDB armazena em: intHomeScore / intAwayScore
+  const home = parseInt(event.intHomeScore || 0)
+  const away = parseInt(event.intAwayScore || 0)
+  return {
+    homeWon: home,
+    awayWon: away,
+    current: 0, // Set atual (será atualizado se houver info detalhada)
+  }
+}
+
+function parsePointData(event) {
+  // Pontos atuais do game (se disponível)
+  // Alguns eventos têm essa info em campos adicionais
+  const homeScore = parseInt(event.intHomeScore || 0)
+  const awayScore = parseInt(event.intAwayScore || 0)
+
+  return {
+    home: homeScore > 0 ? (homeScore % 4) * 15 : 0,
+    away: awayScore > 0 ? (awayScore % 4) * 15 : 0,
+    homeGames: Math.floor(homeScore / 4) || 0,
+    awayGames: Math.floor(awayScore / 4) || 0,
+  }
 }
 
 function determineType(league) {
@@ -71,14 +154,10 @@ function determineType(league) {
   return 'atp'
 }
 
-// Dicionário de IDs de torneios TheSportsDB
 export const THESPORTSDB_TOURNAMENT_IDS = {
-  'wimbledon-men': '133602',
-  'wimbledon-women': '133603',
-  'french-open-men': '133612',
-  'french-open-women': '133613',
-  'us-open-men': '133622',
-  'us-open-women': '133623',
-  'australian-open-men': '133632',
-  'australian-open-women': '133633',
+  'australian-open': '133632',
+  'french-open': '133612',
+  'wimbledon': '133602',
+  'us-open': '133622',
+  'atp-finals': '135018',
 }
