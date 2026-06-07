@@ -69,17 +69,19 @@ export function useTheSportsDB(tournamentId) {
   return { games, loading, error, lastUpdate }
 }
 
-// Hook para buscar todos os torneios ATP em LIVE
+// Hook para buscar todos os torneios ATP (LIVE + FINISHED today)
 export function useATPTournaments() {
   const [tournaments, setTournaments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [hasTodayMatches, setHasTodayMatches] = useState(false)
 
   useEffect(() => {
     const checkTournaments = async () => {
       try {
         setLoading(true)
-        const liveTournaments = []
+        const allTournaments = []
+        const today = new Date().toISOString().split('T')[0]
 
         for (const tournament of ATP_TOURNAMENTS) {
           const response = await fetch(
@@ -89,17 +91,39 @@ export function useATPTournaments() {
           if (response.ok) {
             const data = await response.json()
             if (data.results && data.results.length > 0) {
-              liveTournaments.push({
-                id: tournament.id,
-                name: tournament.name,
-                emoji: tournament.emoji,
-                gameCount: data.results.length,
+              // Filtrar apenas jogos de hoje (LIVE ou FINISHED)
+              const todayMatches = data.results.filter(event => {
+                const eventDate = event.dateEvent || ''
+                return eventDate.startsWith(today.split('-').join(''))
               })
+
+              if (todayMatches.length > 0) {
+                const liveCount = todayMatches.filter(e =>
+                  getMatchStatus(e.strStatus) === 'ongoing'
+                ).length
+                const finishedCount = todayMatches.filter(e =>
+                  getMatchStatus(e.strStatus) === 'finished'
+                ).length
+
+                allTournaments.push({
+                  id: tournament.id,
+                  name: tournament.name,
+                  emoji: tournament.emoji,
+                  gameCount: todayMatches.length,
+                  liveCount,
+                  finishedCount,
+                  status: liveCount > 0 ? 'LIVE' : 'COMPLETED',
+                })
+
+                if (liveCount > 0) {
+                  setHasTodayMatches(true)
+                }
+              }
             }
           }
         }
 
-        setTournaments(liveTournaments)
+        setTournaments(allTournaments)
       } catch (err) {
         setError(err.message)
       } finally {
@@ -110,7 +134,7 @@ export function useATPTournaments() {
     checkTournaments()
   }, [])
 
-  return { tournaments, loading, error }
+  return { tournaments, loading, error, hasTodayMatches }
 }
 
 function getMatchStatus(status) {
