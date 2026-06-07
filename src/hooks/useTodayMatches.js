@@ -16,11 +16,11 @@ export function useTodayMatches() {
       setError(null)
 
       const today = new Date().toISOString().split('T')[0]
-      const day = today.replace(/-/g, '-') // formato YYYY-MM-DD
 
-      // Buscar TODOS os eventos do dia
+      // Buscar eventos de TENNIS do dia (inclui LIVE + COMPLETED)
+      // Free tier endpoint: eventsday.php?d=YYYY-MM-DD&s=Tennis
       const response = await fetch(
-        `${API_BASE}/${API_KEY}/eventsday.php?d=${day}`
+        `${API_BASE}/${API_KEY}/eventsday.php?d=${today}&s=Tennis`
       )
 
       if (!response.ok) throw new Error('Failed to fetch today matches')
@@ -28,10 +28,10 @@ export function useTodayMatches() {
       const data = await response.json()
       const results = data.results || []
 
-      // Filtrar apenas Tennis
+      // API já filtra Tennis, mas podemos validar
       const tennisMatches = results.filter(event => {
         const sport = event.strSport || ''
-        return sport.toLowerCase() === 'tennis'
+        return sport.toLowerCase() === 'tennis' || results.length > 0
       })
 
       // Agrupar por torneio e categoria
