@@ -2,6 +2,9 @@ import { useState } from 'react'
 
 const CORE_API_BASE = 'https://sports.core.api.espn.com/v2/sports/tennis/leagues'
 
+// Helper para garantir HTTPS em URLs da API
+const ensureHttps = (url) => url?.replace('http://', 'https://')
+
 export function usePlayerStats() {
   const [playerStats, setPlayerStats] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -48,7 +51,8 @@ export function usePlayerStats() {
       // Fetch statistics
       if (data.statistics?.$ref) {
         try {
-          const statsResponse = await fetch(data.statistics.$ref)
+          const statsUrl = ensureHttps(data.statistics.$ref)
+          const statsResponse = await fetch(statsUrl)
           if (statsResponse.ok) {
             const statsData = await statsResponse.json()
 
