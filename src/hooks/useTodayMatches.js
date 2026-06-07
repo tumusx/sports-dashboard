@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 
 const API_KEY = '123'
 const API_BASE = 'https://www.thesportsdb.com/api/v1/json'
+// CORS proxy para contornar bloqueio
+const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/'
 
 export function useTodayMatches() {
   const [tournaments, setTournaments] = useState([])
@@ -19,9 +21,15 @@ export function useTodayMatches() {
 
       // Buscar eventos de TENNIS do dia (inclui LIVE + COMPLETED)
       // Free tier endpoint: eventsday.php?d=YYYY-MM-DD&s=Tennis
-      const response = await fetch(
-        `${API_BASE}/${API_KEY}/eventsday.php?d=${today}&s=Tennis`
-      )
+      // Usar CORS proxy para contornar bloqueio
+      const apiUrl = `${API_BASE}/${API_KEY}/eventsday.php?d=${today}&s=Tennis`
+      const proxyUrl = `${CORS_PROXY}${apiUrl}`
+
+      const response = await fetch(proxyUrl, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
 
       if (!response.ok) throw new Error('Failed to fetch today matches')
 
@@ -141,8 +149,9 @@ export function useTodayMatches() {
 
   useEffect(() => {
     fetchTodayMatches()
-    // Atualizar a cada 30 segundos
-    const interval = setInterval(fetchTodayMatches, 30000)
+    // Free tier: 3 req/min = 1 req a cada 20 seg
+    // Usar 120 seg (2 min) para ser seguro
+    const interval = setInterval(fetchTodayMatches, 120000)
     return () => clearInterval(interval)
   }, [])
 
