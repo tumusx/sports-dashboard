@@ -3,19 +3,19 @@ import { useState, useEffect } from 'react'
 // TheSportsDB Free API - 30 requests/minute limit
 const API_BASE = 'https://www.thesportsdb.com/api/v1'
 
-// ATP Torneios Oficiais com seus IDs no TheSportsDB
+// ATP Torneios Oficiais - Usando nomes de liga ao invés de IDs
 const ATP_TOURNAMENTS = [
   // Grand Slams
-  { id: '133632', name: '🦘 Australian Open', emoji: '🦘', category: 'Grand Slam', level: 'Grand Slam' },
-  { id: '133612', name: '🧡 French Open', emoji: '🧡', category: 'Grand Slam', level: 'Grand Slam' },
-  { id: '133602', name: '🌱 Wimbledon', emoji: '🌱', category: 'Grand Slam', level: 'Grand Slam' },
-  { id: '133622', name: '🗽 US Open', emoji: '🗽', category: 'Grand Slam', level: 'Grand Slam' },
+  { league: 'Australian Open', name: '🦘 Australian Open', emoji: '🦘', category: 'Grand Slam', level: 'Grand Slam' },
+  { league: 'French Open', name: '🧡 French Open (Roland Garros)', emoji: '🧡', category: 'Grand Slam', level: 'Grand Slam' },
+  { league: 'Wimbledon', name: '🌱 Wimbledon', emoji: '🌱', category: 'Grand Slam', level: 'Grand Slam' },
+  { league: 'US Open', name: '🗽 US Open', emoji: '🗽', category: 'Grand Slam', level: 'Grand Slam' },
   // Masters 1000
-  { id: '135018', name: '👑 ATP Finals', emoji: '👑', category: 'Masters 1000', level: 'Masters 1000' },
-  { id: '133642', name: '🏛️ Rome Masters', emoji: '🏛️', category: 'Masters 1000', level: 'Masters 1000' },
-  { id: '133652', name: '🇫🇷 Paris Masters', emoji: '🇫🇷', category: 'Masters 1000', level: 'Masters 1000' },
+  { league: 'ATP Finals', name: '👑 ATP Finals', emoji: '👑', category: 'Masters 1000', level: 'Masters 1000' },
+  { league: 'Rome Masters', name: '🏛️ Rome Masters', emoji: '🏛️', category: 'Masters 1000', level: 'Masters 1000' },
+  { league: 'Paris Masters', name: '🇫🇷 Paris Masters', emoji: '🇫🇷', category: 'Masters 1000', level: 'Masters 1000' },
   // ATP 500
-  { id: '133662', name: '🏖️ ATP 500', emoji: '🏖️', category: 'ATP 500', level: 'ATP 500' },
+  { league: 'ATP 500', name: '🏖️ ATP 500', emoji: '🏖️', category: 'ATP 500', level: 'ATP 500' },
 ]
 
 export function useTheSportsDB(tournamentId) {
@@ -29,13 +29,22 @@ export function useTheSportsDB(tournamentId) {
       setLoading(true)
       setError(null)
 
-      const response = await fetch(
-        `${API_BASE}/eventslast.php?id=${tournamentId}`
-      )
+      // Tentar endpoints alternativos
+      let response = await fetch(
+        `${API_BASE}/eventsround.php?id=${tournamentId}&round=1`
+      ).catch(() => null)
 
-      if (!response.ok) throw new Error('Failed to fetch from TheSportsDB')
+      let data = response ? await response.json() : null
 
-      const data = await response.json()
+      // Se falhar, tenta endpoint de últimos eventos
+      if (!data?.results) {
+        response = await fetch(
+          `${API_BASE}/eventslast.php?id=${tournamentId}`
+        )
+        data = await response.json()
+      }
+
+      if (!data) throw new Error('Failed to fetch from TheSportsDB')
 
       if (data.results) {
         const formattedGames = data.results.map(event => ({
@@ -91,20 +100,33 @@ export function useATPTournaments() {
       let hasAnyLive = false
 
       for (const tournament of ATP_TOURNAMENTS) {
-        const response = await fetch(
-          `${API_BASE}/eventslast.php?id=${tournament.id}`
-        )
+        try {
+          // Usar endpoint de busca por liga/evento
+          const response = await fetch(
+            `${API_BASE}/eventsround.php?id=${tournament.league}&round=1`
+          ).catch(() => null)
 
-        if (response.ok) {
-          const data = await response.json()
-          if (data.results && data.results.length > 0) {
+          // Se falhar, tenta endpoint alternativo
+          let data = response ? await response.json() : null
+
+          // Se ainda não tiver dados, tenta endpoint de últimos eventos
+          if (!data || !data.results) {
+            const altResponse = await fetch(
+              `${API_BASE}/eventslast.php?id=${tournament.league}`
+            )
+            data = await altResponse.json()
+          }
+
+          if (data?.results && data.results.length > 0) {
             // Filtrar apenas jogos de hoje (LIVE ou FINISHED)
             const todayMatches = data.results.filter(event => {
               const eventDate = event.dateEvent || ''
-              // Normalizar datas YYYYMMDD ou YYYY-MM-DD
-              const normalizedDate = eventDate.replace(/-/g, '')
-              const todayNormalized = today.replace(/-/g, '')
-              return normalizedDate.startsWith(todayNormalized)
+              // Aceitar datas de hoje e dias próximos (pode ter delay)
+              const checkDate = new Date(today)
+              const eventDateObj = new Date(eventDate)
+
+              // Comparar apenas a data (ignorar hora)
+              return Math.abs(checkDate - eventDateObj) < 24 * 60 * 60 * 1000
             })
 
             if (todayMatches.length > 0) {
@@ -116,7 +138,7 @@ export function useATPTournaments() {
               ).length
 
               allTournaments.push({
-                id: tournament.id,
+                id: tournament.league,
                 name: tournament.name,
                 emoji: tournament.emoji,
                 category: tournament.category,
@@ -132,6 +154,8 @@ export function useATPTournaments() {
               }
             }
           }
+        } catch (err) {
+          console.error(`Error fetching ${tournament.league}:`, err)
         }
       }
 

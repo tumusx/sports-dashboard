@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 
 const ATP_TOURNAMENTS = [
-  { id: '133632', name: 'Australian Open' },
-  { id: '133612', name: 'French Open (Roland Garros)' },
-  { id: '133602', name: 'Wimbledon' },
-  { id: '133622', name: 'US Open' },
+  { league: 'Australian Open', name: 'Australian Open' },
+  { league: 'French Open', name: 'French Open (Roland Garros)' },
+  { league: 'Wimbledon', name: 'Wimbledon' },
+  { league: 'US Open', name: 'US Open' },
+  { league: 'Rome Masters', name: 'Rome Masters' },
+  { league: 'Paris Masters', name: 'Paris Masters' },
 ]
 
 export default function DebugPanel() {
@@ -19,20 +21,31 @@ export default function DebugPanel() {
 
     for (const tournament of ATP_TOURNAMENTS) {
       try {
-        const response = await fetch(
-          `https://www.thesportsdb.com/api/v1/eventslast.php?id=${tournament.id}`
-        )
-        const json = await response.json()
+        // Tentar endpoint alternativo primeiro
+        let response = await fetch(
+          `https://www.thesportsdb.com/api/v1/eventsround.php?id=${tournament.league}&round=1`
+        ).catch(() => null)
+
+        let json = response ? await response.json() : null
+
+        // Se falhar, tenta endpoint de últimos eventos
+        if (!json?.results) {
+          response = await fetch(
+            `https://www.thesportsdb.com/api/v1/eventslast.php?id=${tournament.league}`
+          )
+          json = await response.json()
+        }
 
         const matches = json.results || []
         const todayMatches = matches.filter(e => {
           const eventDate = e.dateEvent || ''
-          const normalized = eventDate.replace(/-/g, '')
-          const todayNormalized = today.replace(/-/g, '')
-          return normalized.startsWith(todayNormalized)
+          const checkDate = new Date(today)
+          const eventDateObj = new Date(eventDate)
+          return Math.abs(checkDate - eventDateObj) < 24 * 60 * 60 * 1000
         })
 
         data[tournament.name] = {
+          league: tournament.league,
           totalMatches: matches.length,
           todayMatches: todayMatches.length,
           todayData: todayMatches.slice(0, 3).map(m => ({
