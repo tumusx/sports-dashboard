@@ -57,34 +57,22 @@ export default function GameCard({ game }) {
               {winner === 'home' && isFinished && ' 🏆'}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Sets */}
-            <div className="text-center">
-              <div className="text-xs text-gray-400">Sets</div>
-              <div className="text-2xl font-bold text-white">
-                {game.sets?.homeWon || 0}
-              </div>
-            </div>
-            {/* Games */}
-            <div className="text-center">
-              <div className="text-xs text-gray-400">Games</div>
-              <div className="text-2xl font-bold text-white">
-                {game.points?.homeGames || 0}
-              </div>
-            </div>
-            {/* Points */}
-            {!isFinished ? (
-              <div className="text-center bg-blue-900/30 px-3 py-2 rounded">
-                <div className="text-xs text-gray-400">Pts</div>
-                <div className="text-xl font-bold text-blue-400">
-                  {formatScore(game.points?.home || 0)}
+          <div className="flex items-center gap-1 shrink-0 text-center">
+            {/* Linescores (Set scores) */}
+            {game.linescores?.home && game.linescores.home.length > 0 ? (
+              game.linescores.home.map((set, idx) => (
+                <div key={idx} className="text-center">
+                  <div className="text-xs text-gray-400">S{idx + 1}</div>
+                  <div className="text-lg font-bold text-white">
+                    {set.value}
+                  </div>
                 </div>
-              </div>
+              ))
             ) : (
-              <div className="text-center bg-gray-700 px-3 py-2 rounded">
-                <div className="text-xs text-gray-400">Score</div>
-                <div className="text-xl font-bold text-white">
-                  {game.homeScore}
+              <div className="text-center">
+                <div className="text-xs text-gray-400">Sets</div>
+                <div className="text-lg font-bold text-white">
+                  {game.sets?.homeWon || 0}
                 </div>
               </div>
             )}
@@ -106,34 +94,22 @@ export default function GameCard({ game }) {
               {winner === 'away' && isFinished && ' 🏆'}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Sets */}
-            <div className="text-center">
-              <div className="text-xs text-gray-400">Sets</div>
-              <div className="text-2xl font-bold text-white">
-                {game.sets?.awayWon || 0}
-              </div>
-            </div>
-            {/* Games */}
-            <div className="text-center">
-              <div className="text-xs text-gray-400">Games</div>
-              <div className="text-2xl font-bold text-white">
-                {game.points?.awayGames || 0}
-              </div>
-            </div>
-            {/* Points */}
-            {!isFinished ? (
-              <div className="text-center bg-purple-900/30 px-3 py-2 rounded">
-                <div className="text-xs text-gray-400">Pts</div>
-                <div className="text-xl font-bold text-purple-400">
-                  {formatScore(game.points?.away || 0)}
+          <div className="flex items-center gap-1 shrink-0 text-center">
+            {/* Linescores (Set scores) */}
+            {game.linescores?.away && game.linescores.away.length > 0 ? (
+              game.linescores.away.map((set, idx) => (
+                <div key={idx} className="text-center">
+                  <div className="text-xs text-gray-400">S{idx + 1}</div>
+                  <div className="text-lg font-bold text-white">
+                    {set.value}
+                  </div>
                 </div>
-              </div>
+              ))
             ) : (
-              <div className="text-center bg-gray-700 px-3 py-2 rounded">
-                <div className="text-xs text-gray-400">Score</div>
-                <div className="text-xl font-bold text-white">
-                  {game.awayScore}
+              <div className="text-center">
+                <div className="text-xs text-gray-400">Sets</div>
+                <div className="text-lg font-bold text-white">
+                  {game.sets?.awayWon || 0}
                 </div>
               </div>
             )}

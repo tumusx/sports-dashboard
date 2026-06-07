@@ -91,10 +91,14 @@ export function useESPNTennis() {
               const home = competitors[0]
               const away = competitors[1]
 
-              console.log('Competitor data:', { home, away })
+              console.log('Home athlete:', home.athlete)
+              console.log('Away athlete:', away.athlete)
 
-              homeTeam = home.athlete?.displayName || home.athlete?.fullName || 'Player 1'
-              awayTeam = away.athlete?.displayName || away.athlete?.fullName || 'Player 2'
+              homeTeam = home.athlete?.displayName || home.athlete?.fullName
+              awayTeam = away.athlete?.displayName || away.athlete?.fullName
+
+              // Pular competições sem nomes (duplos/outras categorias)
+              if (!homeTeam || !awayTeam) return
 
               // Em tennis, contar quantos sets cada jogador ganhou
               if (home.linescores && away.linescores) {
@@ -102,6 +106,10 @@ export function useESPNTennis() {
                 awayScore = away.linescores.filter(s => s.winner).length
               }
             }
+
+            // Extrair linescores para mostrar score completo
+            const homeLinescores = competitors[0]?.linescores || []
+            const awayLinescores = competitors[1]?.linescores || []
 
             tournament.matches.push({
               id: competition.id,
@@ -124,6 +132,11 @@ export function useESPNTennis() {
                 away: 0,
                 homeGames: 0,
                 awayGames: 0,
+              },
+              // Dados detalhados para exibição
+              linescores: {
+                home: homeLinescores,
+                away: awayLinescores,
               },
             })
 
