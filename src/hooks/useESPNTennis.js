@@ -19,17 +19,23 @@ export function useESPNTennis() {
 
       console.log('Fetching ESPN data for date:', selectedDate, 'formatted:', dateFormatted)
 
-      // Buscar apenas ATP por enquanto (evita duplicação)
-      const atpResponse = await fetch(`${ESPN_API_BASE}/atp/scoreboard?dates=${dateFormatted}`)
+      // Buscar ATP e WTA
+      const [atpResponse, wtaResponse] = await Promise.all([
+        fetch(`${ESPN_API_BASE}/atp/scoreboard?dates=${dateFormatted}`),
+        fetch(`${ESPN_API_BASE}/wta/scoreboard?dates=${dateFormatted}`)
+      ])
 
-      if (!atpResponse.ok) {
+      if (!atpResponse.ok || !wtaResponse.ok) {
         throw new Error('Failed to fetch ESPN tennis data')
       }
 
       const atpData = await atpResponse.json()
+      const wtaData = await wtaResponse.json()
 
-      // Processar eventos de ATP
-      const allEvents = (atpData.events || []).map(e => ({ ...e, league: 'ATP' }))
+      // Processar eventos de ATP e WTA
+      const atpEvents = (atpData.events || []).map(e => ({ ...e, league: 'ATP' }))
+      const wtaEvents = (wtaData.events || []).map(e => ({ ...e, league: 'WTA' }))
+      const allEvents = [...atpEvents, ...wtaEvents]
 
       // Agrupar por torneio
       const tournamentMap = new Map()
