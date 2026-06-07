@@ -32,14 +32,29 @@ export function useESPNTennis() {
       const atpData = await atpResponse.json()
       const wtaData = await wtaResponse.json()
 
-      // Processar eventos de ambas as ligas
-      const allEvents = [
-        ...(atpData.events || []).map(e => ({ ...e, league: 'ATP' })),
-        ...(wtaData.events || []).map(e => ({ ...e, league: 'WTA' }))
-      ]
+      // Processar eventos de ambas as ligas (deduplicar por competition.id)
+      const competitionIds = new Set()
+      const allEvents = []
+
+      ;[atpData, wtaData].forEach((leagueData, idx) => {
+        const league = idx === 0 ? 'ATP' : 'WTA'
+        ;(leagueData.events || []).forEach(event => {
+          if (event.groupings) {
+            event.groupings.forEach(grouping => {
+              ;(grouping.competitions || []).forEach(comp => {
+                if (!competitionIds.has(comp.id)) {
+                  competitionIds.add(comp.id)
+                  allEvents.push({ ...event, league })
+                }
+              })
+            })
+          }
+        })
+      })
 
       // Agrupar por torneio
       const tournamentMap = new Map()
+      const seenCompetitions = new Set() // Evitar duplicatas
 
       allEvents.forEach(event => {
         // Estrutura: event.groupings[].competitions[]
@@ -49,6 +64,10 @@ export function useESPNTennis() {
           if (!grouping.competitions || grouping.competitions.length === 0) return
 
           grouping.competitions.forEach(competition => {
+            // Evitar duplicatas
+            if (seenCompetitions.has(competition.id)) return
+            seenCompetitions.add(competition.id)
+
             // Filtrar apenas competições do dia selecionado
             const competitionDate = (competition.date || competition.startDate || '').split('T')[0]
             const selectedDateFormatted = selectedDate
@@ -56,9 +75,8 @@ export function useESPNTennis() {
             if (competitionDate !== selectedDateFormatted) return
 
             const tournamentName = event.name || 'Unknown Tournament'
-            // Usar combinação de event.id + type para evitar duplicatas
-            const competitionType = grouping.grouping?.displayName || competition.type?.text || 'Singles'
-            const tournamentId = `${event.id}-${competitionType}`
+            // Usar event.id como tournamentId
+            const tournamentId = event.id || 'unknown'
 
             if (!tournamentMap.has(tournamentId)) {
               tournamentMap.set(tournamentId, {
