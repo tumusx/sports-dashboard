@@ -102,3 +102,33 @@ vercel
 ## 📄 Licença
 
 MIT
+
+---
+
+## 🔄 Novo: Torneios Concluídos
+
+Se não houver torneios **LIVE** no momento, a aplicação **automaticamente** mostra os torneios que foram **COMPLETADOS naquele dia**.
+
+### Como funciona:
+1. **Busca automática** - Detecta se há torneios em andamento
+2. **Se houver LIVE** - Mostra apenas os jogos em andamento (🔴 LIVE)
+3. **Se NÃO houver LIVE** - Muda automaticamente para mostrar jogos finalizados (✓ COMPLETED)
+4. **Toggle manual** - Você pode alternar entre LIVE ↔ COMPLETED quando ambos disponíveis
+
+### Interface:
+```
+┌─────────────────────────────┐
+│ 🔴 LIVE (3)  │  ✓ COMPLETED (5) │  ← Toggle
+├─────────────────────────────┤
+│ Select Tournament           │
+│ 🌱 Wimbledon • 3 live       │  ← Mostra contagem
+└─────────────────────────────┘
+```
+
+### Cores do Status:
+- **🔴 Vermelho** = Torneios/Jogos em andamento
+- **✓ Verde** = Torneios/Jogos finalizados
+- **Amarelo** = Sincronizando dados
+
+---
+
