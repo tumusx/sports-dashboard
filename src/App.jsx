@@ -3,7 +3,7 @@ import './App.css'
 import TypeFilter from './components/TypeFilter'
 import CategoryFilter from './components/CategoryFilter'
 import GamesList from './components/GamesList'
-import { useTodayMatches } from './hooks/useTodayMatches'
+import { useESPNTennis } from './hooks/useESPNTennis'
 
 function App() {
   const [selectedType, setSelectedType] = useState('all') // all, atp, wta
@@ -11,8 +11,8 @@ function App() {
   const [selectedTournament, setSelectedTournament] = useState(null)
   const [showCompleted, setShowCompleted] = useState(false)
 
-  // Buscar todos os jogos de hoje
-  const { tournaments, loading: tournamentsLoading, lastUpdate, error } = useTodayMatches()
+  // Buscar dados de tênis da ESPN
+  const { tournaments, loading: tournamentsLoading, lastUpdate, error, selectedDate, setSelectedDate } = useESPNTennis()
 
   // Filtrar torneios por categoria
   const filteredTournamentsByCategory = useMemo(() => {
@@ -80,9 +80,22 @@ function App() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">
-            🏆 ATP Live Dashboard
+            🏆 ATP/WTA Live Dashboard
           </h1>
-          <p className="text-gray-400">All matches today • Real-time scores & tracking</p>
+          <p className="text-gray-400">Real-time scores & tracking</p>
+
+          {/* Date Selector */}
+          <div className="mt-4">
+            <label className="block text-sm font-semibold text-gray-300 mb-2">
+              Select Date
+            </label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
         </div>
 
         {/* Error Message */}
