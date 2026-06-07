@@ -86,6 +86,8 @@ export function useESPNTennis() {
             let awayTeam = 'Player 2'
             let homeScore = 0
             let awayScore = 0
+            let homeAthleteFlag = undefined
+            let awayAthleteFlag = undefined
 
             if (competitors.length >= 2) {
               const home = competitors[0]
@@ -101,8 +103,8 @@ export function useESPNTennis() {
               if (!homeTeam || !awayTeam) return
 
               // Extrair dados dos atletas (bandeiras, país)
-              const homeAthleteFlag = home.athlete?.flag?.href
-              const awayAthleteFlag = away.athlete?.flag?.href
+              homeAthleteFlag = home.athlete?.flag?.href
+              awayAthleteFlag = away.athlete?.flag?.href
 
               // Em tennis, contar quantos sets cada jogador ganhou
               if (home.linescores && away.linescores) {
