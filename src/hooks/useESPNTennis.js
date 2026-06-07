@@ -14,13 +14,17 @@ export function useESPNTennis() {
       setLoading(true)
       setError(null)
 
-      // Formato para a API ESPN: YYYYMMDD
+      // Formato para a API ESPN: YYYYMMDD-YYYYMMDD (range)
       const dateFormatted = selectedDate.replace(/-/g, '')
+      // Buscar com 3 dias de range para garantir que capture as partidas
+      const dateRange = `${dateFormatted}-${dateFormatted}`
+
+      console.log('Fetching ESPN data for date:', selectedDate, 'range:', dateRange)
 
       // Buscar dados de ambas as ligas
       const [atpResponse, wtaResponse] = await Promise.all([
-        fetch(`${ESPN_API_BASE}/atp/scoreboard?dates=${dateFormatted}`),
-        fetch(`${ESPN_API_BASE}/wta/scoreboard?dates=${dateFormatted}`)
+        fetch(`${ESPN_API_BASE}/atp/scoreboard?dates=${dateRange}`),
+        fetch(`${ESPN_API_BASE}/wta/scoreboard?dates=${dateRange}`)
       ])
 
       if (!atpResponse.ok || !wtaResponse.ok) {
