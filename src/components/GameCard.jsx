@@ -7,7 +7,12 @@ export default function GameCard({ game }) {
   const { playerStats, loading, fetchPlayerStats } = usePlayerStats()
   const isLive = game.status === 'ongoing'
   const isFinished = game.status === 'finished'
-  const isLeading = game.homeScore > game.awayScore
+
+  // Durante LIVE, o número grande mostra games do set atual (ESPN não entrega 15/30/40).
+  // Em finalizadas, mostra sets ganhos.
+  const homeBig = isLive ? (game.points?.homeGames ?? 0) : game.homeScore
+  const awayBig = isLive ? (game.points?.awayGames ?? 0) : game.awayScore
+  const isLeading = homeBig > awayBig
 
   const handlePlayerClick = (athleteId, playerName) => {
     setSelectedPlayer(playerName)
@@ -79,27 +84,43 @@ export default function GameCard({ game }) {
               {winner === 'home' && isFinished && ' 🏆'}
             </div>
           </div>
-          <div className="text-2xl font-black text-white">{game.homeScore}</div>
+          <div className="text-2xl font-black text-white flex items-center justify-center gap-1">
+            {homeBig}
+            {game.serving === 'home' && <span className="text-yellow-400 text-xs">🎾</span>}
+          </div>
+          {isLive && (
+            <div className="text-[10px] text-gray-400 mt-0.5">
+              Sets: <span className="text-white font-bold">{game.homeScore}</span>
+            </div>
+          )}
         </div>
 
-        {/* Sets Display */}
+        {/* Sets Display — só sets COMPLETOS (winner definido) */}
         <div className="flex flex-col justify-between py-2">
           <div className="text-center">
             <div className="text-xs text-gray-500 mb-1">SETS</div>
-            <div className="flex gap-1 justify-center">
-              {game.linescores?.home && game.linescores.home.length > 0 ? (
-                game.linescores.home.slice(0, 3).map((set, idx) => (
-                  <div key={idx} className="bg-gray-700 rounded px-1.5 py-0.5">
-                    <div className="text-xs font-bold text-white">{set.value || '0'}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm font-bold text-gray-400">—</div>
-              )}
+            <div className="flex flex-col gap-0.5 items-center">
+              {(() => {
+                const homeCompletedSets = (game.linescores?.home || []).filter(s => s.winner !== undefined)
+                const awayCompletedSets = (game.linescores?.away || []).filter(s => s.winner !== undefined)
+                if (homeCompletedSets.length === 0) {
+                  return <div className="text-sm font-bold text-gray-400">—</div>
+                }
+                return homeCompletedSets.map((hSet, idx) => {
+                  const aSet = awayCompletedSets[idx]
+                  return (
+                    <div key={idx} className="flex gap-1 text-xs font-bold">
+                      <span className={hSet.winner ? 'text-green-400' : 'text-gray-300'}>{hSet.value}{hSet.tiebreak != null && <sup>{hSet.tiebreak}</sup>}</span>
+                      <span className="text-gray-500">-</span>
+                      <span className={aSet?.winner ? 'text-green-400' : 'text-gray-300'}>{aSet?.value ?? '-'}{aSet?.tiebreak != null && <sup>{aSet.tiebreak}</sup>}</span>
+                    </div>
+                  )
+                })
+              })()}
             </div>
           </div>
-          <div className="text-center text-xs text-gray-500">
-            {game.date}
+          <div className="text-center text-[10px] text-gray-500 mt-1">
+            {isLive && game.setLabel ? game.setLabel : game.date}
           </div>
         </div>
 
@@ -125,14 +146,22 @@ export default function GameCard({ game }) {
               {winner === 'away' && isFinished && ' 🏆'}
             </div>
           </div>
-          <div className="text-2xl font-black text-white">{game.awayScore}</div>
+          <div className="text-2xl font-black text-white flex items-center justify-center gap-1">
+            {awayBig}
+            {game.serving === 'away' && <span className="text-yellow-400 text-xs">🎾</span>}
+          </div>
+          {isLive && (
+            <div className="text-[10px] text-gray-400 mt-0.5">
+              Sets: <span className="text-white font-bold">{game.awayScore}</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Status Footer */}
       {isLive && (
         <div className="text-xs text-red-400 text-center pt-2 border-t border-gray-700/50">
-          ⚡ Updates every 60 seconds
+          ⚡ Updates every 30 seconds
         </div>
       )}
 

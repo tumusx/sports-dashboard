@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 const ESPN_API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/tennis'
 
@@ -9,7 +9,7 @@ export function useESPNTennis() {
   const [lastUpdate, setLastUpdate] = useState(null)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
 
-  const fetchTennisMatches = async () => {
+  const fetchTennisMatches = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -115,16 +115,38 @@ export function useESPNTennis() {
               awayAthleteId = away.id
 
 
-              // Em tennis, contar quantos sets cada jogador ganhou
+              // Sets ganhos = quantidade de linescores com winner === true.
+              // (ESPN tennis NÃO entrega competitor.score — sempre null)
               if (home.linescores && away.linescores) {
-                homeScore = home.linescores.filter(s => s.winner).length
-                awayScore = away.linescores.filter(s => s.winner).length
+                homeScore = home.linescores.filter(s => s.winner === true).length
+                awayScore = away.linescores.filter(s => s.winner === true).length
+              }
+
+              if (statusType === 'in') {
+                console.log(`[LIVE] ${homeTeam} vs ${awayTeam}`, {
+                  setsWon: `${homeScore}-${awayScore}`,
+                  homeLine: home.linescores,
+                  awayLine: away.linescores,
+                  serving: home.possession === true ? 'home' : away.possession === true ? 'away' : 'unknown',
+                })
               }
             }
 
             // Extrair linescores para mostrar score completo
             const homeLinescores = competitors[0]?.linescores || []
             const awayLinescores = competitors[1]?.linescores || []
+
+            // Games no set atual = value do último linescore (set em andamento, sem winner)
+            const homeCurrentGames = homeLinescores[homeLinescores.length - 1]?.value ?? 0
+            const awayCurrentGames = awayLinescores[awayLinescores.length - 1]?.value ?? 0
+
+            // Indicador de saque
+            const homeServing = competitors[0]?.possession === true
+            const awayServing = competitors[1]?.possession === true
+
+            // Texto descritivo (ex: "X is tied with Y 5-7 4-0") e label do set
+            const summaryNote = (competition.notes || []).find(n => n.text)?.text || null
+            const setLabel = competition.status?.type?.detail || competition.status?.type?.shortDetail || null
 
             // Detectar tipo: se event.league é ATP mas tem nomes femininos, marcar como WTA
             // Nomes femininos comuns em tênis
@@ -158,14 +180,18 @@ export function useESPNTennis() {
               sets: {
                 homeWon: homeScore,
                 awayWon: awayScore,
-                current: 0,
+                current: Math.max(homeLinescores.length, awayLinescores.length),
               },
               points: {
-                home: 0,
-                away: 0,
-                homeGames: 0,
-                awayGames: 0,
+                home: null,
+                away: null,
+                homeGames: homeCurrentGames,
+                awayGames: awayCurrentGames,
               },
+              serving: homeServing ? 'home' : awayServing ? 'away' : null,
+              setLabel: setLabel,
+              summary: summaryNote,
+              lastPlay: null,
               // Dados detalhados para exibição
               linescores: {
                 home: homeLinescores,
@@ -238,12 +264,12 @@ export function useESPNTennis() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedDate])
 
   // Buscar dados quando a data selecionada mudar
   useEffect(() => {
     fetchTennisMatches()
-  }, [selectedDate])
+  }, [fetchTennisMatches])
 
   return {
     tournaments,

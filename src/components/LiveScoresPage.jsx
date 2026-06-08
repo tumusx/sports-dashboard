@@ -6,12 +6,18 @@ export default function LiveScoresPage({ tournaments, selectedDate, setSelectedD
   const [selectedType, setSelectedType] = useState('all')
   const [selectedTournament, setSelectedTournament] = useState(null)
 
-  // Auto-refresh a cada 60 segundos quando na página de live scores
+  // Auto-refresh a cada 30 segundos quando na página de live scores
   useEffect(() => {
+    if (!refetch) return
+    console.log('[LiveScoresPage] auto-refresh ativado (30s)')
     const interval = setInterval(() => {
-      if (refetch) refetch()
-    }, 60000)
-    return () => clearInterval(interval)
+      console.log('[LiveScoresPage] disparando refetch')
+      refetch()
+    }, 30000)
+    return () => {
+      console.log('[LiveScoresPage] limpando interval')
+      clearInterval(interval)
+    }
   }, [refetch])
 
   // Get all live matches (ongoing or finished - for demo, show finished as recent)
@@ -74,7 +80,7 @@ export default function LiveScoresPage({ tournaments, selectedDate, setSelectedD
             <h1 className="text-4xl font-bold text-white mb-2">
               🔴 LIVE SCORES
             </h1>
-            <p className="text-red-400">Real-time match updates • Updates every 60 seconds</p>
+            <p className="text-red-400">Real-time match updates • Updates every 30 seconds</p>
           </div>
           {onBack && (
             <button

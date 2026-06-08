@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import './App.css'
 import TypeFilter from './components/TypeFilter'
 import CategoryFilter from './components/CategoryFilter'
@@ -15,6 +15,20 @@ function App() {
 
   // Buscar dados de tênis da ESPN
   const { tournaments, loading: tournamentsLoading, lastUpdate, error, selectedDate, setSelectedDate, refetch } = useESPNTennis()
+
+  // Auto-refresh a cada 30s no Dashboard (pausa quando LiveScoresPage está ativa, que já tem seu próprio)
+  useEffect(() => {
+    if (showLiveScores || !refetch) return
+    console.log('[App/Dashboard] auto-refresh ativado (30s)')
+    const interval = setInterval(() => {
+      console.log('[App/Dashboard] disparando refetch')
+      refetch()
+    }, 30000)
+    return () => {
+      console.log('[App/Dashboard] limpando interval')
+      clearInterval(interval)
+    }
+  }, [refetch, showLiveScores])
 
   // Filtrar torneios por categoria
   const filteredTournamentsByCategory = useMemo(() => {
